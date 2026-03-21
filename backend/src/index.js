@@ -150,9 +150,116 @@ async function runMigrations() {
   }
 }
 
+// ─── Seed ────────────────────────────────────────────────
+async function runSeed() {
+  try {
+    const check = await pool.query("SELECT COUNT(*) FROM users");
+    if (parseInt(check.rows[0].count) > 0) {
+      console.log("ℹ️ Seed allaqachon qilingan, o'tkazib yuborildi");
+      return;
+    }
+
+    console.log("🌱 Seed boshlanmoqda...");
+
+    // Kurslar
+    await pool.query(`
+      INSERT INTO courses (name, year) VALUES
+        ('Birinchi kurs', 1),
+        ('Ikkinchi kurs', 2),
+        ('Uchinchi kurs', 3)
+      ON CONFLICT DO NOTHING
+    `);
+
+    const courses = await pool.query("SELECT id FROM courses ORDER BY year");
+    const [c1, c2, c3] = courses.rows.map((r) => r.id);
+
+    // Admin — sizning Telegram ID ingiz
+    await pool.query(`
+      INSERT INTO users (telegram_id, full_name, username, role) VALUES
+        (6401123819, 'Administrator', 'admin_user', 'admin')
+      ON CONFLICT DO NOTHING
+    `);
+
+    // O'qituvchilar
+    await pool.query(`
+      INSERT INTO users (telegram_id, full_name, username, role) VALUES
+        (111111111, 'Aziz Karimov',    'aziz_teacher',  'teacher'),
+        (222222222, 'Malika Yusupova', 'malika_teacher', 'teacher'),
+        (333333333, 'Bobur Toshmatov', 'bobur_teacher',  'teacher')
+      ON CONFLICT DO NOTHING
+    `);
+
+    const teachers = await pool.query(
+      `SELECT id FROM users WHERE role = 'teacher' ORDER BY id`,
+    );
+    const [t1, t2, t3] = teachers.rows.map((r) => r.id);
+
+    // Guruhlar
+    await pool.query(`
+      INSERT INTO groups (name, course_id, teacher_id) VALUES
+        ('IT-101', ${c1}, ${t1}),
+        ('IT-102', ${c1}, ${t2}),
+        ('IT-201', ${c2}, ${t3}),
+        ('IT-202', ${c2}, ${t1}),
+        ('IT-301', ${c3}, ${t2})
+      ON CONFLICT DO NOTHING
+    `);
+
+    const groups = await pool.query("SELECT id FROM groups ORDER BY id");
+    const [g1, g2, g3, g4, g5] = groups.rows.map((r) => r.id);
+
+    await pool.query(
+      `UPDATE users SET group_id = ${g1} WHERE telegram_id = 111111111`,
+    );
+    await pool.query(
+      `UPDATE users SET group_id = ${g2} WHERE telegram_id = 222222222`,
+    );
+    await pool.query(
+      `UPDATE users SET group_id = ${g3} WHERE telegram_id = 333333333`,
+    );
+
+    // Talabalar
+    const students = [
+      ["Abdullayev Jasur", g1, "STD-10001"],
+      ["Karimova Nilufar", g1, "STD-10002"],
+      ["Toshmatov Ulmas", g1, "STD-10003"],
+      ["Yusupov Sardor", g1, "STD-10004"],
+      ["Mirzayeva Dilnoza", g1, "STD-10005"],
+      ["Rahimov Temur", g1, "STD-10006"],
+      ["Nazarova Feruza", g2, "STD-10007"],
+      ["Xasanov Bekzod", g2, "STD-10008"],
+      ["Umarov Otabek", g2, "STD-10009"],
+      ["Ergasheva Kamola", g2, "STD-10010"],
+      ["Ismoilova Zulfiya", g3, "STD-10011"],
+      ["Qodirov Mansur", g3, "STD-10012"],
+      ["Haydarov Islom", g3, "STD-10013"],
+      ["Tursunova Barno", g3, "STD-10014"],
+      ["Mirzayev Alisher", g4, "STD-10015"],
+      ["Holmatova Sabohat", g4, "STD-10016"],
+      ["Yuldashev Farrux", g4, "STD-10017"],
+      ["Botirov Sunnat", g5, "STD-10018"],
+      ["Murodova Mahliyo", g5, "STD-10019"],
+      ["Xoliqov Nodir", g5, "STD-10020"],
+    ];
+
+    for (const [name, gid, code] of students) {
+      await pool.query(
+        `INSERT INTO students (full_name, group_id, student_code)
+         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+        [name, gid, code],
+      );
+    }
+
+    console.log("✅ Seed tugadi!");
+  } catch (err) {
+    console.error("❌ Seed xatosi:", err.message);
+  }
+}
+
 // ─── Serverni ishga tushirish ─────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`🚀 Backend http://localhost:${PORT} da ishlamoqda`);
   await runMigrations();
+  await runSeed();
 });
