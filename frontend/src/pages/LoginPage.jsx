@@ -1,125 +1,202 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const { login, error } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [status,  setStatus]  = useState('');
+  const [userId,   setUserId]   = useState('');
+  const [password, setPassword] = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState('');
+  const [showPw,   setShowPw]   = useState(false);
 
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg?.initDataUnsafe?.user) {
-      handleLogin(tg.initDataUnsafe.user, tg.initData);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!userId.trim() || !password.trim()) {
+      setError("ID va parolni kiriting");
+      return;
     }
-  }, []);
-
-  const handleLogin = async (tgUser, initData) => {
     setLoading(true);
-    setStatus("Telegram ma'lumotlari tekshirilmoqda...");
-    const result = await login(tgUser, initData);
+    setError('');
+    const result = await login(userId.trim(), password);
     if (result.success) {
-      navigate('/', { replace: true });
+      const role = result.user.role;
+      if (role === 'student') {
+        navigate('/profile', { replace: true });
+      } else if (['master', 'curator'].includes(role)) {
+        navigate('/my-groups', { replace: true });
+      } else if (['director', 'deputy'].includes(role)) {
+        navigate('/', { replace: true });
+      } else if (role === 'attendance_manager') {
+        navigate('/mark', { replace: true });
+      }
+    } else {
+      setError(result.error);
     }
     setLoading(false);
-    setStatus('');
   };
 
   return (
     <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px',
+      minHeight: '100vh', display: 'flex',
+      flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '24px',
       background: 'var(--bg-primary)',
     }}>
       {/* Logo */}
       <div style={{
-        width: '80px', height: '80px',
-        borderRadius: '24px',
+        width: '72px', height: '72px', borderRadius: '20px',
         background: 'linear-gradient(135deg, #3b82f6, #a855f7)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '36px',
-        marginBottom: '24px',
-        boxShadow: '0 8px 32px rgba(59,130,246,0.3)',
-      }}>
-        🎓
-      </div>
+        fontSize: '32px', marginBottom: '20px',
+        boxShadow: '0 8px 24px rgba(59,130,246,0.3)',
+      }}>🎓</div>
 
-      <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '8px' }}>
-        Davomat Bot
+      <h1 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '4px' }}>
+        Davomat Tizimi
       </h1>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', marginBottom: '40px' }}>
-        Talabalar davomatini kuzatish tizimi
+      <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '32px' }}>
+        Tizimga kirish
       </p>
 
-      {/* Holat */}
-      {loading ? (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '40px', height: '40px',
-            border: '3px solid var(--border)',
-            borderTop: '3px solid var(--accent-blue)',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            margin: '0 auto 16px',
-          }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{status}</p>
-        </div>
-      ) : error ? (
-        <div style={{
-          background: 'rgba(239,68,68,0.1)',
-          border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: 'var(--radius-md)',
-          padding: '20px',
-          textAlign: 'center',
-          maxWidth: '320px',
-          width: '100%',
-        }}>
-          <p style={{ fontSize: '24px', marginBottom: '10px' }}>⚠️</p>
-          <p style={{ color: 'var(--accent-red)', fontWeight: 700, marginBottom: '8px' }}>
-            Kirish mumkin emas
-          </p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{error}</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '12px' }}>
-            Iltimos, administrator bilan bog'laning.
-          </p>
-        </div>
-      ) : (
-        <p style={{ color: 'var(--text-muted)', fontSize: '14px', textAlign: 'center' }}>
-          Bu ilovani Telegram orqali oching.<br />
-          <span style={{ color: 'var(--accent-blue-light)', fontWeight: 700 }}>
-            @{import.meta.env.VITE_BOT_USERNAME || 'davomat_bot'}
-          </span>
-        </p>
-      )}
-
-      {/* Xususiyatlar */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: '10px',
-        marginTop: '48px',
-        width: '100%',
-        maxWidth: '320px',
+      {/* Form */}
+      <form onSubmit={handleSubmit} style={{
+        width: '100%', maxWidth: '340px',
+        display: 'flex', flexDirection: 'column', gap: '14px',
       }}>
-        {[
-          { icon: '📱', text: 'QR Skaner' },
-          { icon: '📊', text: 'Tahlil' },
-          { icon: '🔐', text: 'Xavfsiz' },
-        ].map(({ icon, text }) => (
-          <div key={text} style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '12px 8px',
+        {/* ID */}
+        <div>
+          <label style={{
+            display: 'block', fontSize: '12px',
+            fontWeight: 700, color: 'var(--text-secondary)',
+            marginBottom: '6px',
+          }}>
+            FOYDALANUVCHI ID
+          </label>
+          <input
+            type="text"
+            value={userId}
+            onChange={e => setUserId(e.target.value.toUpperCase())}
+            placeholder="DR0001"
+            maxLength={10}
+            style={{
+              width: '100%', padding: '12px 14px',
+              background: 'var(--bg-secondary)',
+              border: `1px solid ${error ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--text-primary)', fontSize: '16px',
+              fontFamily: 'var(--font-mono)', letterSpacing: '0.1em',
+            }}
+          />
+        </div>
+
+        {/* Parol */}
+        <div>
+          <label style={{
+            display: 'block', fontSize: '12px',
+            fontWeight: 700, color: 'var(--text-secondary)',
+            marginBottom: '6px',
+          }}>
+            PAROL
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPw ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              style={{
+                width: '100%', padding: '12px 44px 12px 14px',
+                background: 'var(--bg-secondary)',
+                border: `1px solid ${error ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)', fontSize: '15px',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPw(!showPw)}
+              style={{
+                position: 'absolute', right: '12px', top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent', color: 'var(--text-muted)',
+                fontSize: '16px', padding: '4px',
+              }}
+            >
+              {showPw ? '🙈' : '👁️'}
+            </button>
+          </div>
+        </div>
+
+        {/* Xato */}
+        {error && (
+          <div style={{
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 14px',
+            color: 'var(--accent-red)',
+            fontSize: '13px', fontWeight: 600,
             textAlign: 'center',
           }}>
-            <div style={{ fontSize: '20px', marginBottom: '4px' }}>{icon}</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 700 }}>{text}</div>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Kirish tugmasi */}
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: '100%', padding: '14px',
+            background: loading ? 'var(--bg-secondary)' : 'var(--accent-blue)',
+            color: loading ? 'var(--text-muted)' : '#fff',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '15px', fontWeight: 800,
+            transition: 'all 0.2s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          }}
+        >
+          {loading ? (
+            <>
+              <div style={{
+                width: '16px', height: '16px',
+                border: '2px solid var(--border)',
+                borderTop: '2px solid var(--accent-blue)',
+                borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+              }} />
+              Tekshirilmoqda...
+            </>
+          ) : '🔐 Kirish'}
+        </button>
+      </form>
+
+      {/* Rol izohi */}
+      <div style={{
+        marginTop: '32px', width: '100%', maxWidth: '340px',
+        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)', padding: '14px',
+      }}>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '8px' }}>
+          ID FORMATLARI
+        </p>
+        {[
+          { id: 'DR****', label: 'Direktor' },
+          { id: 'DP****', label: 'Direktor o\'rinbosari' },
+          { id: 'AM****', label: 'Davomatchi' },
+          { id: 'MA****', label: 'Usta o\'qituvchi' },
+          { id: 'CU****', label: 'Kurator' },
+          { id: 'ST****', label: "O'quvchi" },
+        ].map(({ id, label }) => (
+          <div key={id} style={{
+            display: 'flex', justifyContent: 'space-between',
+            padding: '4px 0', borderBottom: '1px solid var(--border)',
+          }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--accent-blue-light)' }}>
+              {id}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{label}</span>
           </div>
         ))}
       </div>

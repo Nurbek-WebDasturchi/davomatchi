@@ -6,98 +6,86 @@ async function migrate() {
   try {
     console.log('🔄 Migration boshlanmoqda...');
 
-    // Foydalanuvchilar (admin va o'qituvchilar)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
-        id          SERIAL PRIMARY KEY,
-        telegram_id BIGINT UNIQUE NOT NULL,
-        full_name   VARCHAR(255) NOT NULL,
-        username    VARCHAR(100),
-        role        VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher')),
-        group_id    INTEGER,
-        created_at  TIMESTAMP DEFAULT NOW(),
-        updated_at  TIMESTAMP DEFAULT NOW()
-      );
+        id         VARCHAR(10) PRIMARY KEY,
+        password   VARCHAR(255) NOT NULL,
+        role       VARCHAR(30) NOT NULL CHECK (role IN (
+                     'student', 'master', 'curator',
+                     'director', 'deputy', 'attendance_manager'
+                   )),
+        first_name VARCHAR(100) NOT NULL,
+        last_name  VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
     `);
 
-    // Kurslar (1-kurs, 2-kurs, ...)
     await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id         SERIAL PRIMARY KEY,
         name       VARCHAR(100) NOT NULL,
         year       INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
-      );
+      )
     `);
 
-    // Guruhlar
     await client.query(`
       CREATE TABLE IF NOT EXISTS groups (
         id         SERIAL PRIMARY KEY,
         name       VARCHAR(100) NOT NULL,
-        course_id  INTEGER REFERENCES courses(id) ON DELETE CASCADE,
-        teacher_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        course_id  INTEGER REFERENCES courses(id) ON DELETE SET NULL,
         qr_token   VARCHAR(255) UNIQUE NOT NULL DEFAULT gen_random_uuid()::text,
         created_at TIMESTAMP DEFAULT NOW()
-      );
+      )
     `);
 
-    // users.group_id → groups.id foreign key (alohida, chunki circular)
     await client.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE constraint_name = 'fk_users_group'
-        ) THEN
-          ALTER TABLE users
-          ADD CONSTRAINT fk_users_group
-          FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL;
-        END IF;
-      END $$;
+      CREATE TABLE IF NOT EXISTS group_assignments (
+        id       SERIAL PRIMARY KEY,
+        user_id  VARCHAR(10) REFERENCES users(id) ON DELETE CASCADE,
+        group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+        UNIQUE (user_id, group_id)
+      )
     `);
 
-    // Talabalar
     await client.query(`
       CREATE TABLE IF NOT EXISTS students (
-        id           SERIAL PRIMARY KEY,
-        full_name    VARCHAR(255) NOT NULL,
-        student_code VARCHAR(50) UNIQUE,
+        id           VARCHAR(10) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         group_id     INTEGER REFERENCES groups(id) ON DELETE SET NULL,
+        student_code VARCHAR(50) UNIQUE,
         phone        VARCHAR(20),
         created_at   TIMESTAMP DEFAULT NOW()
-      );
+      )
     `);
 
-    // Davomat
     await client.query(`
       CREATE TABLE IF NOT EXISTS attendance (
         id         SERIAL PRIMARY KEY,
-        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        student_id VARCHAR(10) REFERENCES students(id) ON DELETE CASCADE,
         group_id   INTEGER REFERENCES groups(id) ON DELETE SET NULL,
         date       DATE NOT NULL DEFAULT CURRENT_DATE,
         status     VARCHAR(20) NOT NULL DEFAULT 'present'
                    CHECK (status IN ('present', 'absent', 'late')),
+        marked_by  VARCHAR(10) REFERENCES users(id) ON DELETE SET NULL,
         scanned_at TIMESTAMP DEFAULT NOW(),
         UNIQUE (student_id, date)
-      );
+      )
     `);
 
-    // Indekslar (tezlik uchun)
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_attendance_date    ON attendance(date);
-      CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id);
-      CREATE INDEX IF NOT EXISTS idx_students_group     ON students(group_id);
-    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_attendance_date    ON attendance(date)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_students_group     ON students(group_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_assignments_user   ON group_assignments(user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_assignments_group  ON group_assignments(group_id)`);
 
-    console.log('✅ Barcha jadvallar yaratildi!');
+    console.log('✅ Migration tugadi!');
   } catch (err) {
     console.error('❌ Migration xatosi:', err.message);
     throw err;
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-migrate().catch(console.error);
+module.exports = migrate;

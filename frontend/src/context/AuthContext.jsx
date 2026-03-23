@@ -4,49 +4,37 @@ import api from '../utils/api';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null);
+  const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
 
-  // Telegram orqali kirish
-  const login = useCallback(async (tgUser, initData) => {
+  // ID + Password bilan kirish
+  const login = useCallback(async (userId, password) => {
     try {
-      setError(null);
-      const res = await api.post('/auth/telegram', {
-        telegramId: tgUser.id,
-        fullName: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' '),
-        username:  tgUser.username,
-        initData,
-      });
-
+      const res = await api.post('/auth/login', { userId, password });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user',  JSON.stringify(res.data.user));
       setUser(res.data.user);
-      return { success: true };
+      return { success: true, user: res.data.user };
     } catch (err) {
       const msg = err.response?.data?.error || 'Xatolik yuz berdi';
-      setError(msg);
       return { success: false, error: msg };
     }
   }, []);
 
-  // Chiqish
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
   }, []);
 
-  // Ilovani ochganda avtomatik kirish
+  // Sahifa ochilganda sessiyani tiklash
   useEffect(() => {
     const init = async () => {
       try {
-        const storedToken = localStorage.getItem('token');
-        const storedUser  = localStorage.getItem('user');
-
-        if (storedToken && storedUser) {
-          setUser(JSON.parse(storedUser));
-          // Token hali ham amal qilishini tekshirish
+        const token = localStorage.getItem('token');
+        const stored = localStorage.getItem('user');
+        if (token && stored) {
+          setUser(JSON.parse(stored));
           try {
             const res = await api.get('/auth/me');
             setUser(res.data.user);
@@ -55,14 +43,6 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('user');
             setUser(null);
           }
-          setLoading(false);
-          return;
-        }
-
-        // Telegram WebApp orqali avtomatik kirish
-        const tg = window.Telegram?.WebApp;
-        if (tg?.initDataUnsafe?.user) {
-          await login(tg.initDataUnsafe.user, tg.initData);
         }
       } catch (err) {
         console.error('Auth init xatosi:', err.message);
@@ -70,12 +50,11 @@ export function AuthProvider({ children }) {
         setLoading(false);
       }
     };
-
     init();
-  }, [login]);
+  }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, logout, setError }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

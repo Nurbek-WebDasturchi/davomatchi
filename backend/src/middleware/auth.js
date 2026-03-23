@@ -1,7 +1,15 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 
-// Token tekshiruvchi middleware
+// Rol guruhlari
+const ROLES = {
+  ADMIN:    ['director', 'deputy'],
+  TEACHER:  ['master', 'curator'],
+  MANAGER:  ['attendance_manager'],
+  STUDENT:  ['student'],
+};
+
+// Token tekshiruvchi
 async function authMiddleware(req, res, next) {
   try {
     const header = req.headers.authorization;
@@ -13,7 +21,7 @@ async function authMiddleware(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const result = await pool.query(
-      'SELECT id, telegram_id, full_name, role, group_id FROM users WHERE id = $1',
+      'SELECT id, role, first_name, last_name FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -31,7 +39,7 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-// Rol tekshiruvchi middleware
+// Rol tekshiruvchi
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
@@ -41,4 +49,20 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authMiddleware, requireRole };
+// Admin (director/deputy) tekshiruvi
+function requireAdmin(req, res, next) {
+  if (!ROLES.ADMIN.includes(req.user.role)) {
+    return res.status(403).json({ error: "Faqat direktorlar uchun" });
+  }
+  next();
+}
+
+// Teacher (master/curator) yoki admin
+function requireTeacherOrAdmin(req, res, next) {
+  if (![...ROLES.ADMIN, ...ROLES.TEACHER].includes(req.user.role)) {
+    return res.status(403).json({ error: "Ruxsat yo'q" });
+  }
+  next();
+}
+
+module.exports = { authMiddleware, requireRole, requireAdmin, requireTeacherOrAdmin, ROLES };

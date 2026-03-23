@@ -1,144 +1,135 @@
 const pool = require('./pool');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 async function seed() {
   const client = await pool.connect();
   try {
-    console.log('🌱 Seed ma\'lumotlar kiritilmoqda...');
+    const check = await client.query("SELECT COUNT(*) FROM users");
+    if (parseInt(check.rows[0].count) > 0) {
+      console.log("ℹ️ Seed allaqachon qilingan");
+      return;
+    }
+
+    console.log('🌱 Seed boshlanmoqda...');
+
+    const hash = async (pw) => bcrypt.hash(pw, 10);
 
     // ─── Kurslar ───────────────────────────────────────
-    const cRes = await client.query(`
+    await client.query(`
       INSERT INTO courses (name, year) VALUES
         ('Birinchi kurs', 1),
         ('Ikkinchi kurs', 2),
         ('Uchinchi kurs', 3)
       ON CONFLICT DO NOTHING
-      RETURNING id;
     `);
+    const courses = await client.query('SELECT id FROM courses ORDER BY year');
+    const [c1, c2, c3] = courses.rows.map(r => r.id);
 
-    // Agar allaqachon mavjud bo'lsa, qayta olamiz
-    const cAll = await client.query('SELECT id FROM courses ORDER BY year');
-    const [c1, c2, c3] = cAll.rows.map(r => r.id);
-    console.log('✅ Kurslar tayyor');
-
-    // ─── Admin foydalanuvchi ───────────────────────────
-    // !!! BU YERGA O'Z TELEGRAM ID'INGIZNI YOZING !!!
-    await client.query(`
-      INSERT INTO users (telegram_id, full_name, username, role)
-      VALUES (123456789, 'Administrator', 'admin_user', 'admin')
-      ON CONFLICT (telegram_id) DO NOTHING;
-    `);
-
-    // ─── O'qituvchilar ─────────────────────────────────
-    // !!! BU YERGA O'QITUVCHILARNING TELEGRAM ID'LARINI YOZING !!!
-    await client.query(`
-      INSERT INTO users (telegram_id, full_name, username, role) VALUES
-        (111111111, 'Aziz Karimov',    'aziz_teacher',   'teacher'),
-        (222222222, 'Malika Yusupova', 'malika_teacher',  'teacher'),
-        (333333333, 'Bobur Toshmatov', 'bobur_teacher',   'teacher')
-      ON CONFLICT (telegram_id) DO NOTHING;
-    `);
-
-    const teachers = await client.query(
-      'SELECT id, telegram_id FROM users WHERE role = $1 ORDER BY id',
-      ['teacher']
+    // ─── Director ──────────────────────────────────────
+    await client.query(
+      `INSERT INTO users (id, password, role, first_name, last_name) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+      ['DR0001', await hash('director123'), 'director', 'Jasur', 'Karimov']
     );
-    const [t1, t2, t3] = teachers.rows.map(r => r.id);
-    console.log('✅ Foydalanuvchilar tayyor');
+
+    // ─── Deputy Director ───────────────────────────────
+    await client.query(
+      `INSERT INTO users (id, password, role, first_name, last_name) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+      ['DP0001', await hash('deputy123'), 'deputy', 'Malika', 'Yusupova']
+    );
+
+    // ─── Attendance Manager ────────────────────────────
+    await client.query(
+      `INSERT INTO users (id, password, role, first_name, last_name) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+      ['AM0001', await hash('manager123'), 'attendance_manager', 'Bobur', 'Toshmatov']
+    );
 
     // ─── Guruhlar ──────────────────────────────────────
     await client.query(`
-      INSERT INTO groups (name, course_id, teacher_id) VALUES
-        ('IT-101', ${c1}, ${t1}),
-        ('IT-102', ${c1}, ${t2}),
-        ('IT-201', ${c2}, ${t3}),
-        ('IT-202', ${c2}, ${t1}),
-        ('IT-301', ${c3}, ${t2})
-      ON CONFLICT DO NOTHING;
+      INSERT INTO groups (name, course_id) VALUES
+        ('IT-101', ${c1}), ('IT-102', ${c1}),
+        ('IT-201', ${c2}), ('IT-202', ${c2}),
+        ('IT-301', ${c3})
+      ON CONFLICT DO NOTHING
     `);
-
-    const groups = await client.query('SELECT id, name FROM groups ORDER BY id');
+    const groups = await client.query('SELECT id FROM groups ORDER BY id');
     const [g1, g2, g3, g4, g5] = groups.rows.map(r => r.id);
 
-    // O'qituvchilarga guruh biriktirish
-    await client.query(`UPDATE users SET group_id = ${g1} WHERE telegram_id = 111111111`);
-    await client.query(`UPDATE users SET group_id = ${g2} WHERE telegram_id = 222222222`);
-    await client.query(`UPDATE users SET group_id = ${g3} WHERE telegram_id = 333333333`);
-    console.log('✅ Guruhlar tayyor');
-
-    // ─── Talabalar ─────────────────────────────────────
-    const students = [
-      // IT-101 (g1)
-      ['Abdullayev Jasur',    g1, 'STD-10001'],
-      ['Karimova Nilufar',    g1, 'STD-10002'],
-      ['Toshmatov Ulmas',     g1, 'STD-10003'],
-      ['Yusupov Sardor',      g1, 'STD-10004'],
-      ['Mirzayeva Dilnoza',   g1, 'STD-10005'],
-      ['Rahimov Temur',       g1, 'STD-10006'],
-      // IT-102 (g2)
-      ['Nazarova Feruza',     g2, 'STD-10007'],
-      ['Xasanov Bekzod',      g2, 'STD-10008'],
-      ['Umarov Otabek',       g2, 'STD-10009'],
-      ['Ergasheva Kamola',    g2, 'STD-10010'],
-      ['Sobirov Sherzod',     g2, 'STD-10011'],
-      // IT-201 (g3)
-      ['Ismoilova Zulfiya',   g3, 'STD-10012'],
-      ['Qodirov Mansur',      g3, 'STD-10013'],
-      ['Haydarov Islom',      g3, 'STD-10014'],
-      ['Tursunova Barno',     g3, 'STD-10015'],
-      ['Normatov Doniyor',    g3, 'STD-10016'],
-      // IT-202 (g4)
-      ['Mirzayev Alisher',    g4, 'STD-10017'],
-      ['Holmatova Sabohat',   g4, 'STD-10018'],
-      ['Yuldashev Farrux',    g4, 'STD-10019'],
-      ['Qosimova Hulkar',     g4, 'STD-10020'],
-      // IT-301 (g5)
-      ['Botirov Sunnat',      g5, 'STD-10021'],
-      ['Murodova Mahliyo',    g5, 'STD-10022'],
-      ['Xoliqov Nodir',       g5, 'STD-10023'],
-      ['Davlatova Saodat',    g5, 'STD-10024'],
+    // ─── Master/Curator ────────────────────────────────
+    const teachers = [
+      ['MA0001', 'master123', 'master',  'Aziz',   'Rahimov',   [g1, g2]],
+      ['CU0001', 'curator123','curator', 'Nodira',  'Xasanova',  [g3]],
+      ['CU0002', 'curator123','curator', 'Sherzod', 'Mirzayev',  [g4, g5]],
     ];
 
-    for (const [name, gid, code] of students) {
+    for (const [id, pw, role, fn, ln, gids] of teachers) {
       await client.query(
-        'INSERT INTO students (full_name, group_id, student_code) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
-        [name, gid, code]
+        `INSERT INTO users (id, password, role, first_name, last_name) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`,
+        [id, await hash(pw), role, fn, ln]
+      );
+      for (const gid of gids) {
+        await client.query(
+          `INSERT INTO group_assignments (user_id, group_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+          [id, gid]
+        );
+      }
+    }
+
+    // ─── Talabalar ─────────────────────────────────────
+    const studentData = [
+      // IT-101
+      ['ST0001', 'Abdullayev', 'Jasur',    g1],
+      ['ST0002', 'Karimova',   'Nilufar',  g1],
+      ['ST0003', 'Toshmatov',  'Ulmas',    g1],
+      ['ST0004', 'Yusupov',    'Sardor',   g1],
+      ['ST0005', 'Mirzayeva',  'Dilnoza',  g1],
+      // IT-102
+      ['ST0006', 'Nazarova',   'Feruza',   g2],
+      ['ST0007', 'Xasanov',    'Bekzod',   g2],
+      ['ST0008', 'Umarov',     'Otabek',   g2],
+      ['ST0009', 'Ergasheva',  'Kamola',   g2],
+      // IT-201
+      ['ST0010', 'Ismoilova',  'Zulfiya',  g3],
+      ['ST0011', 'Qodirov',    'Mansur',   g3],
+      ['ST0012', 'Haydarov',   'Islom',    g3],
+      // IT-202
+      ['ST0013', 'Mirzayev',   'Alisher',  g4],
+      ['ST0014', 'Holmatova',  'Sabohat',  g4],
+      ['ST0015', 'Yuldashev',  'Farrux',   g4],
+      // IT-301
+      ['ST0016', 'Botirov',    'Sunnat',   g5],
+      ['ST0017', 'Murodova',   'Mahliyo',  g5],
+      ['ST0018', 'Xoliqov',    'Nodir',    g5],
+    ];
+
+    const studentPw = await hash('student123');
+    for (const [id, ln, fn, gid] of studentData) {
+      await client.query(
+        `INSERT INTO users (id, password, role, first_name, last_name) VALUES ($1,$2,'student',$3,$4) ON CONFLICT DO NOTHING`,
+        [id, studentPw, fn, ln]
+      );
+      await client.query(
+        `INSERT INTO students (id, group_id, student_code) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`,
+        [id, gid, id]
       );
     }
-    console.log('✅ Talabalar tayyor');
 
-    // ─── Namuna davomat (bugun va kecha) ───────────────
-    const allStudents = await client.query('SELECT id, group_id FROM students');
-
-    for (const s of allStudents.rows.slice(0, 14)) {
-      await client.query(`
-        INSERT INTO attendance (student_id, group_id, date, status)
-        VALUES ($1, $2, CURRENT_DATE, 'present')
-        ON CONFLICT DO NOTHING
-      `, [s.id, s.group_id]);
-    }
-
-    for (const s of allStudents.rows.slice(0, 18)) {
-      await client.query(`
-        INSERT INTO attendance (student_id, group_id, date, status)
-        VALUES ($1, $2, CURRENT_DATE - 1, 'present')
-        ON CONFLICT DO NOTHING
-      `, [s.id, s.group_id]);
-    }
-    console.log('✅ Namuna davomat tayyor');
-
-    console.log('\n🎉 Seed muvaffaqiyatli tugadi!');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('⚠️  MUHIM: seed.js dagi telegram_id larni');
-    console.log('   o\'z haqiqiy Telegram ID laringizga almashtiring!');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✅ Seed tugadi!');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('👤 Login ma\'lumotlari:');
+    console.log('  Director:    DR0001 / director123');
+    console.log('  Deputy:      DP0001 / deputy123');
+    console.log('  Att.Manager: AM0001 / manager123');
+    console.log('  Master:      MA0001 / master123');
+    console.log('  Curator:     CU0001 / curator123');
+    console.log('  Student:     ST0001 / student123');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   } catch (err) {
     console.error('❌ Seed xatosi:', err.message);
     throw err;
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-seed().catch(console.error);
+module.exports = seed;
