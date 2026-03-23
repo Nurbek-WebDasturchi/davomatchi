@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
-const { authMiddleware, requireAdmin, requireTeacherOrAdmin, ROLES } = require('../middleware/auth');
+const { authMiddleware, requireAdmin, ROLES } = require('../middleware/auth');
 
-// POST /api/attendance/scan
-// QR kod orqali davomat (barcha login qilgan foydalanuvchilar)
+// POST /api/attendance/scan — QR kod (barcha login qilganlar)
 router.post('/scan', authMiddleware, async (req, res) => {
   try {
     const { qrToken, studentId } = req.body;
@@ -20,8 +19,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
 
     const studentRes = await pool.query(
       `SELECT s.id, u.first_name, u.last_name, s.group_id
-       FROM students s JOIN users u ON u.id = s.id
-       WHERE s.id = $1`,
+       FROM students s JOIN users u ON u.id = s.id WHERE s.id = $1`,
       [studentId]
     );
     if (studentRes.rows.length === 0) {
@@ -41,8 +39,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
 
     if (existing.rows.length > 0) {
       return res.json({
-        success: true,
-        alreadyMarked: true,
+        success: true, alreadyMarked: true,
         message: 'Bugun allaqachon belgilangan',
         attendance: {
           studentName: `${student.first_name} ${student.last_name}`,
@@ -59,8 +56,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
     );
 
     res.json({
-      success: true,
-      alreadyMarked: false,
+      success: true, alreadyMarked: false,
       message: 'Davomat muvaffaqiyatli belgilandi!',
       attendance: {
         studentName: `${student.first_name} ${student.last_name}`,
@@ -74,13 +70,11 @@ router.post('/scan', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/attendance/manual
-// Qo'lda davomat belgilash (faqat attendance_manager, director, deputy)
+// POST /api/attendance/manual — Qo'lda belgilash (FAQAT davomatchi)
 router.post('/manual', authMiddleware, async (req, res) => {
   try {
-    const allowed = [...ROLES.ADMIN, ...ROLES.MANAGER];
-    if (!allowed.includes(req.user.role)) {
-      return res.status(403).json({ error: "Ruxsat yo'q" });
+    if (req.user.role !== 'attendance_manager') {
+      return res.status(403).json({ error: "Faqat davomatchi uchun" });
     }
 
     const { studentId } = req.body;
@@ -89,8 +83,7 @@ router.post('/manual', authMiddleware, async (req, res) => {
     }
 
     const studentRes = await pool.query(
-      `SELECT s.id, u.first_name, u.last_name, s.group_id,
-              g.name AS group_name
+      `SELECT s.id, u.first_name, u.last_name, s.group_id, g.name AS group_name
        FROM students s
        JOIN users u ON u.id = s.id
        LEFT JOIN groups g ON g.id = s.group_id
@@ -111,8 +104,7 @@ router.post('/manual', authMiddleware, async (req, res) => {
 
     if (existing.rows.length > 0) {
       return res.json({
-        success: true,
-        alreadyMarked: true,
+        success: true, alreadyMarked: true,
         message: 'Bu talaba bugun allaqachon belgilangan',
         student: {
           id: student.id,
@@ -130,8 +122,7 @@ router.post('/manual', authMiddleware, async (req, res) => {
     );
 
     res.json({
-      success: true,
-      alreadyMarked: false,
+      success: true, alreadyMarked: false,
       message: 'Davomat muvaffaqiyatli belgilandi!',
       student: {
         id: student.id,
@@ -146,8 +137,7 @@ router.post('/manual', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/attendance/today
-// Bugungi statistika (director, deputy)
+// GET /api/attendance/today — Bugungi statistika (director, deputy)
 router.get('/today', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -160,8 +150,7 @@ router.get('/today', authMiddleware, requireAdmin, async (req, res) => {
       LEFT JOIN groups   g ON g.course_id = c.id
       LEFT JOIN students s ON s.group_id  = g.id
       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      GROUP BY c.id, c.name, c.year
-      ORDER BY c.year
+      GROUP BY c.id, c.name, c.year ORDER BY c.year
     `, [today]);
 
     const totals = await pool.query(`
@@ -178,15 +167,43 @@ router.get('/today', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/group/:groupId
-// Guruh davomati
+// GET /api/attendance/all-groups — Davomatchi va admin uchun barcha guruhlar
+router.get('/all-groups', authMiddleware, async (req, res) => {
+  try {
+    const allowed = ['attendance_manager', 'director', 'deputy'];
+    if (!allowed.includes(req.user.role)) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const groups = await pool.query(`
+      SELECT g.id, g.name, c.name AS course_name,
+             COUNT(DISTINCT s.id)         AS total_students,
+             COUNT(DISTINCT a.student_id) AS present_count
+      FROM groups g
+      LEFT JOIN courses c    ON c.id = g.course_id
+      LEFT JOIN students s   ON s.group_id = g.id
+      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
+      GROUP BY g.id, g.name, c.name
+      ORDER BY c.name, g.name
+    `, [today]);
+
+    res.json({ groups: groups.rows, date: today });
+  } catch (err) {
+    console.error('All groups xatosi:', err.message);
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
+
+// GET /api/attendance/group/:groupId — Guruh davomati
 router.get('/group/:groupId', authMiddleware, async (req, res) => {
   try {
     const groupId = parseInt(req.params.groupId);
     const date = req.query.date || new Date().toISOString().split('T')[0];
     const user = req.user;
 
-    // Master/Curator faqat o'z guruhini ko'ra oladi
+    // Master/Curator faqat o'z guruhini ko'radi
     if (ROLES.TEACHER.includes(user.role)) {
       const assigned = await pool.query(
         'SELECT group_id FROM group_assignments WHERE user_id = $1 AND group_id = $2',
@@ -195,7 +212,7 @@ router.get('/group/:groupId', authMiddleware, async (req, res) => {
       if (assigned.rows.length === 0) {
         return res.status(403).json({ error: "Bu guruhga ruxsatingiz yo'q" });
       }
-    } else if (!ROLES.ADMIN.includes(user.role) && !ROLES.MANAGER.includes(user.role)) {
+    } else if (!['director', 'deputy', 'attendance_manager'].includes(user.role)) {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
 
@@ -212,12 +229,10 @@ router.get('/group/:groupId', authMiddleware, async (req, res) => {
     const students = await pool.query(`
       SELECT s.id, u.first_name, u.last_name, s.student_code,
              CASE WHEN a.id IS NOT NULL THEN true ELSE false END AS is_present,
-             a.scanned_at, a.status,
-             mu.first_name AS marked_by_first, mu.last_name AS marked_by_last
+             a.scanned_at, a.status
       FROM students s
       JOIN users u ON u.id = s.id
       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      LEFT JOIN users mu ON mu.id = a.marked_by
       WHERE s.group_id = $2
       ORDER BY is_present DESC, u.last_name
     `, [date, groupId]);
@@ -226,10 +241,8 @@ router.get('/group/:groupId', authMiddleware, async (req, res) => {
 
     res.json({
       group: groupInfo.rows[0],
-      date,
-      totalStudents: students.rows.length,
-      presentCount,
-      students: students.rows,
+      date, totalStudents: students.rows.length,
+      presentCount, students: students.rows,
     });
   } catch (err) {
     console.error('Group attendance xatosi:', err.message);
@@ -237,8 +250,7 @@ router.get('/group/:groupId', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/attendance/my-groups
-// Master/Curator uchun o'z guruhlari
+// GET /api/attendance/my-groups — Master/Curator o'z guruhlari
 router.get('/my-groups', authMiddleware, async (req, res) => {
   try {
     if (!ROLES.TEACHER.includes(req.user.role)) {
@@ -253,12 +265,11 @@ router.get('/my-groups', authMiddleware, async (req, res) => {
              COUNT(DISTINCT a.student_id) AS present_count
       FROM group_assignments ga
       JOIN groups g ON g.id = ga.group_id
-      LEFT JOIN courses c ON c.id = g.course_id
-      LEFT JOIN students s ON s.group_id = g.id
+      LEFT JOIN courses c    ON c.id = g.course_id
+      LEFT JOIN students s   ON s.group_id = g.id
       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
       WHERE ga.user_id = $2
-      GROUP BY g.id, g.name, c.name
-      ORDER BY g.name
+      GROUP BY g.id, g.name, c.name ORDER BY g.name
     `, [today, req.user.id]);
 
     res.json({ groups: groups.rows, date: today });
@@ -272,7 +283,6 @@ router.get('/my-groups', authMiddleware, async (req, res) => {
 router.get('/course/:courseId/groups', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
-
     const groups = await pool.query(`
       SELECT g.id, g.name, g.qr_token,
              COUNT(DISTINCT s.id)         AS total_students,
@@ -281,8 +291,7 @@ router.get('/course/:courseId/groups', authMiddleware, requireAdmin, async (req,
       LEFT JOIN students   s ON s.group_id = g.id
       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
       WHERE g.course_id = $2
-      GROUP BY g.id, g.name, g.qr_token
-      ORDER BY g.name
+      GROUP BY g.id, g.name, g.qr_token ORDER BY g.name
     `, [today, req.params.courseId]);
 
     res.json({ groups: groups.rows, date: today });
@@ -297,7 +306,6 @@ router.get('/analytics', authMiddleware, async (req, res) => {
   try {
     const period = req.query.period === 'month' ? 30 : 7;
     const user = req.user;
-
     let whereExtra = '';
     const params = [period];
 
@@ -319,8 +327,7 @@ router.get('/analytics', authMiddleware, async (req, res) => {
       ${ROLES.TEACHER.includes(user.role) ? 'JOIN group_assignments ga ON ga.group_id = g.id' : ''}
       WHERE a.date >= CURRENT_DATE - ($1 || ' days')::interval
       ${whereExtra}
-      GROUP BY a.date
-      ORDER BY a.date
+      GROUP BY a.date ORDER BY a.date
     `, params);
 
     res.json({ analytics: rows.rows, period });
@@ -338,11 +345,8 @@ router.get('/export', authMiddleware, requireAdmin, async (req, res) => {
 
     const result = await pool.query(`
       SELECT u.last_name || ' ' || u.first_name AS "Talaba ismi",
-             s.student_code AS "Talaba kodi",
-             g.name         AS "Guruh",
-             c.name         AS "Kurs",
-             a.date         AS "Sana",
-             a.status       AS "Holat",
+             s.student_code AS "Talaba kodi", g.name AS "Guruh",
+             c.name AS "Kurs", a.date AS "Sana", a.status AS "Holat",
              TO_CHAR(a.scanned_at, 'HH24:MI') AS "Vaqt"
       FROM attendance a
       JOIN students s ON s.id  = a.student_id
@@ -353,7 +357,7 @@ router.get('/export', authMiddleware, requireAdmin, async (req, res) => {
       ORDER BY a.date, g.name, u.last_name
     `, [start, end]);
 
-    res.json({ data: result.rows, count: result.rows.length, startDate: start, endDate: end });
+    res.json({ data: result.rows, count: result.rows.length });
   } catch (err) {
     console.error('Export xatosi:', err.message);
     res.status(500).json({ error: 'Server xatosi' });

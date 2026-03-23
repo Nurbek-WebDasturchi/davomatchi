@@ -6,6 +6,7 @@ import LoginPage        from './pages/LoginPage';
 import DashboardPage    from './pages/DashboardPage';
 import MyGroupsPage     from './pages/MyGroupsPage';
 import GroupDetailPage  from './pages/GroupDetailPage';
+import GroupsListPage   from './pages/GroupsListPage';
 import QRScannerPage    from './pages/QRScannerPage';
 import QRDisplayPage    from './pages/QRDisplayPage';
 import AnalyticsPage    from './pages/AnalyticsPage';
@@ -27,10 +28,10 @@ function HomeRedirect() {
   if (!user)   return <Navigate to="/login" replace />;
 
   const role = user.role;
-  if (role === 'student')                         return <Navigate to="/profile"   replace />;
-  if (['master', 'curator'].includes(role))       return <Navigate to="/my-groups" replace />;
+  if (role === 'student')                         return <Navigate to="/profile"     replace />;
+  if (['master', 'curator'].includes(role))       return <Navigate to="/my-groups"   replace />;
   if (['director', 'deputy'].includes(role))      return <DashboardPage />;
-  if (role === 'attendance_manager')              return <Navigate to="/mark"      replace />;
+  if (role === 'attendance_manager')              return <Navigate to="/mark"        replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -44,7 +45,6 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Asosiy sahifa — rolga qarab yo'naltiradi */}
       <Route path="/" element={<ProtectedRoute><HomeRedirect /></ProtectedRoute>} />
 
       {/* Director / Deputy */}
@@ -54,14 +54,23 @@ function AppRoutes() {
       <Route path="/analytics" element={
         <ProtectedRoute roles={['director','deputy']}><AnalyticsPage /></ProtectedRoute>
       } />
+      <Route path="/qr/:id" element={
+        <ProtectedRoute roles={['director','deputy','master','curator']}>
+          <QRDisplayPage />
+        </ProtectedRoute>
+      } />
+
+      {/* Guruh tafsiloti — director, deputy, master, curator, attendance_manager */}
       <Route path="/group/:id" element={
         <ProtectedRoute roles={['director','deputy','master','curator','attendance_manager']}>
           <GroupDetailPage />
         </ProtectedRoute>
       } />
-      <Route path="/qr/:id" element={
-        <ProtectedRoute roles={['director','deputy','master','curator']}>
-          <QRDisplayPage />
+
+      {/* Barcha guruhlar — director, deputy, attendance_manager */}
+      <Route path="/groups-list" element={
+        <ProtectedRoute roles={['director','deputy','attendance_manager']}>
+          <GroupsListPage />
         </ProtectedRoute>
       } />
 
@@ -70,19 +79,19 @@ function AppRoutes() {
         <ProtectedRoute roles={['master','curator']}><MyGroupsPage /></ProtectedRoute>
       } />
 
-      {/* Attendance Manager */}
+      {/* Davomatchi — faqat attendance_manager */}
       <Route path="/mark" element={
-        <ProtectedRoute roles={['attendance_manager','director','deputy']}>
+        <ProtectedRoute roles={['attendance_manager']}>
           <MarkAttendance />
         </ProtectedRoute>
       } />
 
-      {/* QR Scanner — barcha login qilganlar */}
+      {/* QR Scanner — BARCHA login qilganlar (o'quvchi ham) */}
       <Route path="/scan" element={
         <ProtectedRoute><QRScannerPage /></ProtectedRoute>
       } />
 
-      {/* Student */}
+      {/* Student profili */}
       <Route path="/profile" element={
         <ProtectedRoute roles={['student']}><ProfilePage /></ProtectedRoute>
       } />
