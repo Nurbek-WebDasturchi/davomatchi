@@ -74,8 +74,7 @@ export default function LoginPage() {
           fontSize: "13px",
           marginBottom: "32px",
         }}>
-        Amudaryo 1-son texnikumi davomat tizimiga parol va ID bilan kiring.
-        Dasturchi Shomurodov Otabek
+        Tizimga kiring.
       </p>
 
       {/* Form */}
