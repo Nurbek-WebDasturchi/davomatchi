@@ -29,7 +29,7 @@ export default function GroupDetailPage() {
         setGroups(res.data.groups);
       } else {
         const res = await api.get(`/attendance/group/${id}?date=${date}`);
-        console.log("API response:", res.data); // ← QO'SHING
+        console.log("API response:", res.data);
         setData(res.data);
       }
     } catch (err) {
@@ -38,6 +38,10 @@ export default function GroupDetailPage() {
       setLoading(false);
     }
   };
+
+  // Talaba ismini xavfsiz olish
+  const getFullName = (s) =>
+    s?.full_name || s?.name || s?.student_name || "Noma'lum";
 
   const filtered = data?.students?.filter((s) => {
     if (filter === "present") return s.is_present;
@@ -358,97 +362,100 @@ export default function GroupDetailPage() {
                   flexDirection: "column",
                   gap: "7px",
                 }}>
-                {filtered?.map((s, i) => (
-                  <div
-                    key={s.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      background: "var(--bg-card)",
-                      border: `1px solid ${s.is_present ? "rgba(34,197,94,0.2)" : "var(--border)"}`,
-                      borderRadius: "var(--radius-md)",
-                      padding: "10px 12px",
-                      animation: "fadeIn 0.25s ease forwards",
-                      animationDelay: `${i * 0.035}s`,
-                      opacity: 0,
-                    }}>
+                {filtered?.map((s, i) => {
+                  const fullName = getFullName(s);
+                  return (
                     <div
+                      key={s.id}
                       style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: "50%",
-                        background: s.is_present
-                          ? "rgba(34,197,94,0.12)"
-                          : "rgba(100,116,139,0.12)",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
-                        fontWeight: 800,
-                        fontSize: "13px",
-                        color: s.is_present
-                          ? "var(--accent-green)"
-                          : "var(--text-muted)",
-                        flexShrink: 0,
+                        gap: "10px",
+                        background: "var(--bg-card)",
+                        border: `1px solid ${s.is_present ? "rgba(34,197,94,0.2)" : "var(--border)"}`,
+                        borderRadius: "var(--radius-md)",
+                        padding: "10px 12px",
+                        animation: "fadeIn 0.25s ease forwards",
+                        animationDelay: `${i * 0.035}s`,
+                        opacity: 0,
                       }}>
-                      {s.full_name.charAt(0)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
+                      <div
                         style={{
-                          fontWeight: 700,
+                          width: 34,
+                          height: 34,
+                          borderRadius: "50%",
+                          background: s.is_present
+                            ? "rgba(34,197,94,0.12)"
+                            : "rgba(100,116,139,0.12)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 800,
                           fontSize: "13px",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          color: s.is_present
+                            ? "var(--accent-green)"
+                            : "var(--text-muted)",
+                          flexShrink: 0,
                         }}>
-                        {s.full_name}
-                      </p>
-                      <p
-                        style={{
-                          color: "var(--text-muted)",
-                          fontSize: "10px",
-                        }}>
-                        {s.student_code || "Kod yo'q"}
-                      </p>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      {s.is_present ? (
-                        <>
-                          <p
-                            style={{
-                              color: "var(--accent-green)",
-                              fontSize: "10px",
-                              fontWeight: 700,
-                            }}>
-                            ✅ Keldi
-                          </p>
-                          {s.scanned_at && (
-                            <p
-                              style={{
-                                color: "var(--text-muted)",
-                                fontSize: "10px",
-                              }}>
-                              {new Date(s.scanned_at).toLocaleTimeString(
-                                "uz-UZ",
-                                { hour: "2-digit", minute: "2-digit" },
-                              )}
-                            </p>
-                          )}
-                        </>
-                      ) : (
+                        {fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "13px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}>
+                          {fullName}
+                        </p>
                         <p
                           style={{
                             color: "var(--text-muted)",
                             fontSize: "10px",
-                            fontWeight: 700,
                           }}>
-                          ❌ Kelmadi
+                          {s.student_code || "Kod yo'q"}
                         </p>
-                      )}
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        {s.is_present ? (
+                          <>
+                            <p
+                              style={{
+                                color: "var(--accent-green)",
+                                fontSize: "10px",
+                                fontWeight: 700,
+                              }}>
+                              ✅ Keldi
+                            </p>
+                            {s.scanned_at && (
+                              <p
+                                style={{
+                                  color: "var(--text-muted)",
+                                  fontSize: "10px",
+                                }}>
+                                {new Date(s.scanned_at).toLocaleTimeString(
+                                  "uz-UZ",
+                                  { hour: "2-digit", minute: "2-digit" },
+                                )}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p
+                            style={{
+                              color: "var(--text-muted)",
+                              fontSize: "10px",
+                              fontWeight: 700,
+                            }}>
+                            ❌ Kelmadi
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
