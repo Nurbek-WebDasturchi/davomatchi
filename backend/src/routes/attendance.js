@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require("../db/pool");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
-// POST /api/attendance/scan — QR kod (barcha login qilganlar)
+// POST /api/attendance/scan
 router.post("/scan", authMiddleware, async (req, res) => {
   try {
     const { qrToken, studentId } = req.body;
@@ -77,7 +77,7 @@ router.post("/scan", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/attendance/manual — Qo'lda belgilash (FAQAT davomatchi)
+// POST /api/attendance/manual
 router.post("/manual", authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== "attendance_manager") {
@@ -148,32 +148,28 @@ router.post("/manual", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/attendance/today — Bugungi statistika (director, deputy)
+// GET /api/attendance/today
 router.get("/today", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
 
     const byCourse = await pool.query(
-      `
-      SELECT c.id AS course_id, c.name AS course_name, c.year,
-             COUNT(DISTINCT s.id)         AS total_students,
-             COUNT(DISTINCT a.student_id) AS present_count
-      FROM courses c
-      LEFT JOIN groups   g ON g.course_id = c.id
-      LEFT JOIN students s ON s.group_id  = g.id
-      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      GROUP BY c.id, c.name, c.year ORDER BY c.year
-    `,
+      `SELECT c.id AS course_id, c.name AS course_name, c.year,
+              COUNT(DISTINCT s.id)         AS total_students,
+              COUNT(DISTINCT a.student_id) AS present_count
+       FROM courses c
+       LEFT JOIN groups   g ON g.course_id = c.id
+       LEFT JOIN students s ON s.group_id  = g.id
+       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
+       GROUP BY c.id, c.name, c.year ORDER BY c.year`,
       [today],
     );
 
     const totals = await pool.query(
-      `
-      SELECT COUNT(DISTINCT s.id)         AS total_students,
-             COUNT(DISTINCT a.student_id) AS present_today
-      FROM students s
-      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-    `,
+      `SELECT COUNT(DISTINCT s.id)         AS total_students,
+              COUNT(DISTINCT a.student_id) AS present_today
+       FROM students s
+       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1`,
       [today],
     );
 
@@ -184,7 +180,7 @@ router.get("/today", authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/attendance/all-groups — Davomatchi va admin uchun barcha guruhlar
+// GET /api/attendance/all-groups
 router.get("/all-groups", authMiddleware, async (req, res) => {
   try {
     const allowed = ["attendance_manager", "director", "deputy"];
@@ -195,17 +191,15 @@ router.get("/all-groups", authMiddleware, async (req, res) => {
     const today = new Date().toISOString().split("T")[0];
 
     const groups = await pool.query(
-      `
-      SELECT g.id, g.name, c.name AS course_name,
-             COUNT(DISTINCT s.id)         AS total_students,
-             COUNT(DISTINCT a.student_id) AS present_count
-      FROM groups g
-      LEFT JOIN courses c    ON c.id = g.course_id
-      LEFT JOIN students s   ON s.group_id = g.id
-      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      GROUP BY g.id, g.name, c.name
-      ORDER BY c.name, g.name
-    `,
+      `SELECT g.id, g.name, c.name AS course_name,
+              COUNT(DISTINCT s.id)         AS total_students,
+              COUNT(DISTINCT a.student_id) AS present_count
+       FROM groups g
+       LEFT JOIN courses c    ON c.id = g.course_id
+       LEFT JOIN students s   ON s.group_id = g.id
+       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
+       GROUP BY g.id, g.name, c.name
+       ORDER BY c.name, g.name`,
       [today],
     );
 
@@ -216,14 +210,13 @@ router.get("/all-groups", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/attendance/group/:groupId — Guruh davomati
+// GET /api/attendance/group/:groupId
 router.get("/group/:groupId", authMiddleware, async (req, res) => {
   try {
     const groupId = parseInt(req.params.groupId);
     const date = req.query.date || new Date().toISOString().split("T")[0];
     const user = req.user;
 
-    // Master/Curator faqat o'z guruhini ko'radi
     if (ROLES.TEACHER.includes(user.role)) {
       const assigned = await pool.query(
         "SELECT group_id FROM group_assignments WHERE user_id = $1 AND group_id = $2",
@@ -239,11 +232,9 @@ router.get("/group/:groupId", authMiddleware, async (req, res) => {
     }
 
     const groupInfo = await pool.query(
-      `
-      SELECT g.id, g.name, g.qr_token, c.name AS course_name
-      FROM groups g LEFT JOIN courses c ON c.id = g.course_id
-      WHERE g.id = $1
-    `,
+      `SELECT g.id, g.name, g.qr_token, c.name AS course_name
+       FROM groups g LEFT JOIN courses c ON c.id = g.course_id
+       WHERE g.id = $1`,
       [groupId],
     );
 
@@ -252,16 +243,17 @@ router.get("/group/:groupId", authMiddleware, async (req, res) => {
     }
 
     const students = await pool.query(
-      `
-      SELECT s.id, u.first_name, u.last_name, s.student_code,
-             CASE WHEN a.id IS NOT NULL THEN true ELSE false END AS is_present,
-             a.scanned_at, a.status
-      FROM students s
-      JOIN users u ON u.id = s.id
-      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      WHERE s.group_id = $2
-      ORDER BY is_present DESC, u.last_name
-    `,
+      `SELECT s.id,
+              u.first_name || ' ' || u.last_name AS full_name,
+              s.student_code,
+              CASE WHEN a.id IS NOT NULL THEN true ELSE false END AS is_present,
+              a.scanned_at,
+              a.status
+       FROM students s
+       JOIN users u ON u.id = s.id
+       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
+       WHERE s.group_id = $2
+       ORDER BY is_present DESC, u.last_name`,
       [date, groupId],
     );
 
@@ -280,7 +272,7 @@ router.get("/group/:groupId", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/attendance/my-groups — Master/Curator o'z guruhlari
+// GET /api/attendance/my-groups
 router.get("/my-groups", authMiddleware, async (req, res) => {
   try {
     if (!ROLES.TEACHER.includes(req.user.role)) {
@@ -290,18 +282,16 @@ router.get("/my-groups", authMiddleware, async (req, res) => {
     const today = new Date().toISOString().split("T")[0];
 
     const groups = await pool.query(
-      `
-      SELECT g.id, g.name, c.name AS course_name,
-             COUNT(DISTINCT s.id)         AS total_students,
-             COUNT(DISTINCT a.student_id) AS present_count
-      FROM group_assignments ga
-      JOIN groups g ON g.id = ga.group_id
-      LEFT JOIN courses c    ON c.id = g.course_id
-      LEFT JOIN students s   ON s.group_id = g.id
-      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      WHERE ga.user_id = $2
-      GROUP BY g.id, g.name, c.name ORDER BY g.name
-    `,
+      `SELECT g.id, g.name, c.name AS course_name,
+              COUNT(DISTINCT s.id)         AS total_students,
+              COUNT(DISTINCT a.student_id) AS present_count
+       FROM group_assignments ga
+       JOIN groups g ON g.id = ga.group_id
+       LEFT JOIN courses c    ON c.id = g.course_id
+       LEFT JOIN students s   ON s.group_id = g.id
+       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
+       WHERE ga.user_id = $2
+       GROUP BY g.id, g.name, c.name ORDER BY g.name`,
       [today, req.user.id],
     );
 
@@ -322,16 +312,14 @@ router.get(
       const today = new Date().toISOString().split("T")[0];
 
       const groups = await pool.query(
-        `
-      SELECT g.id, g.name, g.qr_token,
-             COUNT(DISTINCT s.id)         AS total_students,
-             COUNT(DISTINCT a.student_id) AS present_count
-      FROM groups g
-      LEFT JOIN students   s ON s.group_id = g.id
-      LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
-      WHERE g.course_id = $2
-      GROUP BY g.id, g.name, g.qr_token ORDER BY g.name
-    `,
+        `SELECT g.id, g.name, g.qr_token,
+              COUNT(DISTINCT s.id)         AS total_students,
+              COUNT(DISTINCT a.student_id) AS present_count
+       FROM groups g
+       LEFT JOIN students   s ON s.group_id = g.id
+       LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
+       WHERE g.course_id = $2
+       GROUP BY g.id, g.name, g.qr_token ORDER BY g.name`,
         [today, req.params.courseId],
       );
 
@@ -360,18 +348,16 @@ router.get("/analytics", authMiddleware, async (req, res) => {
     }
 
     const rows = await pool.query(
-      `
-      SELECT a.date,
-             COUNT(DISTINCT a.student_id) AS present_count,
-             COUNT(DISTINCT s.id)         AS total_students
-      FROM attendance a
-      JOIN students s ON s.id = a.student_id
-      JOIN groups   g ON g.id = s.group_id
-      ${ROLES.TEACHER.includes(user.role) ? "JOIN group_assignments ga ON ga.group_id = g.id" : ""}
-      WHERE a.date >= CURRENT_DATE - ($1 || ' days')::interval
-      ${whereExtra}
-      GROUP BY a.date ORDER BY a.date
-    `,
+      `SELECT a.date,
+              COUNT(DISTINCT a.student_id) AS present_count,
+              COUNT(DISTINCT s.id)         AS total_students
+       FROM attendance a
+       JOIN students s ON s.id = a.student_id
+       JOIN groups   g ON g.id = s.group_id
+       ${ROLES.TEACHER.includes(user.role) ? "JOIN group_assignments ga ON ga.group_id = g.id" : ""}
+       WHERE a.date >= CURRENT_DATE - ($1 || ' days')::interval
+       ${whereExtra}
+       GROUP BY a.date ORDER BY a.date`,
       params,
     );
 
@@ -382,7 +368,7 @@ router.get("/analytics", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/attendance/export — director, deputy, attendance_manager
+// GET /api/attendance/export
 router.get("/export", authMiddleware, async (req, res) => {
   try {
     const allowed = ["director", "deputy", "attendance_manager"];
@@ -396,22 +382,20 @@ router.get("/export", authMiddleware, async (req, res) => {
       new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
 
     const result = await pool.query(
-      `
-      SELECT u.last_name || ' ' || u.first_name AS "Talaba ismi",
-             s.student_code AS "Talaba kodi",
-             g.name         AS "Guruh",
-             c.name         AS "Kurs",
-             a.date         AS "Sana",
-             a.status       AS "Holat",
-             TO_CHAR(a.scanned_at, 'HH24:MI') AS "Vaqt"
-      FROM attendance a
-      JOIN students s ON s.id  = a.student_id
-      JOIN users    u ON u.id  = s.id
-      JOIN groups   g ON g.id  = a.group_id
-      JOIN courses  c ON c.id  = g.course_id
-      WHERE a.date BETWEEN $1 AND $2
-      ORDER BY a.date, g.name, u.last_name
-    `,
+      `SELECT u.last_name || ' ' || u.first_name AS "Talaba ismi",
+              s.student_code AS "Talaba kodi",
+              g.name         AS "Guruh",
+              c.name         AS "Kurs",
+              a.date         AS "Sana",
+              a.status       AS "Holat",
+              TO_CHAR(a.scanned_at, 'HH24:MI') AS "Vaqt"
+       FROM attendance a
+       JOIN students s ON s.id  = a.student_id
+       JOIN users    u ON u.id  = s.id
+       JOIN groups   g ON g.id  = a.group_id
+       JOIN courses  c ON c.id  = g.course_id
+       WHERE a.date BETWEEN $1 AND $2
+       ORDER BY a.date, g.name, u.last_name`,
       [start, end],
     );
 
