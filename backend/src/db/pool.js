@@ -1,49 +1,62 @@
 const { Pool } = require("pg");
 require("dotenv").config();
 
+// ===================================
+// DATABASE CONNECTION POOL
+// ===================================
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
-
-  // ✅ Qo'shilgan optimizatsiyalar:
-  max: 10, // Neon free: max 10 ta ulanish
-  min: 2, // Doim 2 ta ulanish tayyor tursin
-  idleTimeoutMillis: 30000, // 30 sek ishlatilmasa ulanishni yop
-  connectionTimeoutMillis: 5000, // 5 sek ichida ulanolmasa xato ber
-  allowExitOnIdle: false, // Server to'xtamasin
+  ssl: {
+    rejectUnauthorized: false, // ← SUPABASE UCHUN ZARUR!
+  },
+  // Connection pool settings
+  max: 10, // Maximum connections
+  idleTimeoutMillis: 30000, // 30 sekunddan so'ng o'chir
+  connectionTimeoutMillis: 5000, // 5 sekund timeout
 });
 
-// Birinchi ulanishda log
-let connected = false;
-pool.on("connect", () => {
-  if (!connected) {
-    console.log("✅ PostgreSQL ga ulandi");
-    connected = true;
-  }
-});
+// ===================================
+// CONNECTION ERROR HANDLING
+// ===================================
 
 pool.on("error", (err) => {
-  console.error("❌ PostgreSQL xatosi:", err.message);
+  console.error("❌ Unexpected error on idle client:", err.message);
 });
 
-// ✅ DB ham "uyg'oq" tursin — har 9 daqiqada oddiy query
-const keepDbAlive = () => {
-  setInterval(
-    async () => {
-      try {
-        await pool.query("SELECT 1");
-        console.log("🔄 DB keep-alive OK");
-      } catch (err) {
-        console.error("❌ DB keep-alive xato:", err.message);
-      }
-    },
-    9 * 60 * 1000,
-  ); // 9 daqiqa
-};
+pool.on("connect", () => {
+  console.log("✅ Database connection established");
+});
 
-keepDbAlive();
+pool.on("remove", () => {
+  console.log("⚠️  A client has been removed from the pool");
+});
+
+// ===================================
+// TEST CONNECTION
+// ===================================
+
+async function testConnection() {
+  try {
+    const client = await pool.connect();
+    const result = await client.query("SELECT NOW()");
+    console.log("✅ Database connection test successful:", result.rows[0]);
+    client.release();
+    return true;
+  } catch (err) {
+    console.error("❌ Database connection test failed:", err.message);
+    return false;
+  }
+}
+
+// Test connection on startup (optional)
+if (process.env.NODE_ENV !== "production") {
+  testConnection();
+}
+
+// ===================================
+// EXPORTS
+// ===================================
 
 module.exports = pool;
+module.exports.testConnection = testConnection;
