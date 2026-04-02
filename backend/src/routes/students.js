@@ -1,42 +1,61 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
-const { authMiddleware, requireRole } = require("../middleware/auth");
+const bcrypt = require("bcryptjs");
+const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
 // GET /api/students
 router.get("/", authMiddleware, async (req, res) => {
   try {
+    const { role, id: userId } = req.user;
     const { groupId, search } = req.query;
     const params = [];
     let where = "WHERE 1=1";
 
-    if (req.user.role === "teacher") {
-      params.push(req.user.group_id);
-      where += ` AND s.group_id = $${params.length}`;
-    } else if (groupId) {
-      params.push(groupId);
-      where += ` AND s.group_id = $${params.length}`;
+    if (ROLES.TEACHER.includes(role)) {
+      // Master/Curator — faqat o'z guruhlaridagi talabalar
+      const assignedRes = await pool.query(
+        "SELECT group_id FROM group_assignments WHERE user_id = $1",
+        [userId],
+      );
+      const assignedIds = assignedRes.rows.map((r) => r.group_id);
+      if (assignedIds.length === 0) {
+        return res.json({ students: [], total: 0 });
+      }
+      params.push(assignedIds);
+      where += ` AND s.group_id = ANY($${params.length})`;
+    } else if ([...ROLES.ADMIN, ...ROLES.MANAGER].includes(role)) {
+      // Director/Deputy/Manager — barcha talabalar, lekin filter qilish mumkin
+      if (groupId) {
+        params.push(parseInt(groupId));
+        where += ` AND s.group_id = $${params.length}`;
+      }
+    } else {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
     }
 
     if (search) {
-      params.push(`%${search}%`);
-      where += ` AND (u.first_name ILIKE $${params.length} OR u.last_name ILIKE $${params.length})`;
+      params.push(`%${search.trim()}%`);
+      where += ` AND (u.first_name ILIKE $${params.length}
+                   OR u.last_name  ILIKE $${params.length}
+                   OR s.id         ILIKE $${params.length})`;
     }
 
     const result = await pool.query(
-      `
-      SELECT s.id,
-             u.first_name || ' ' || u.last_name AS full_name,
-             s.student_code,
-             g.name AS group_name,
-             c.name AS course_name
-      FROM students s
-      JOIN users u ON u.id = s.id
-      LEFT JOIN groups  g ON g.id = s.group_id
-      LEFT JOIN courses c ON c.id = g.course_id
-      ${where}
-      ORDER BY u.last_name, u.first_name
-    `,
+      `SELECT s.id,
+              u.first_name,
+              u.last_name,
+              u.first_name || ' ' || u.last_name AS full_name,
+              s.student_code,
+              s.group_id,
+              g.name AS group_name,
+              c.name AS course_name
+       FROM students s
+       JOIN  users   u ON u.id  = s.id
+       LEFT JOIN groups  g ON g.id  = s.group_id
+       LEFT JOIN courses c ON c.id  = g.course_id
+       ${where}
+       ORDER BY u.last_name, u.first_name`,
       params,
     );
 
@@ -47,33 +66,126 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/students — Yangi talaba qo'shish (faqat admin)
-router.post("/", authMiddleware, requireRole("admin"), async (req, res) => {
+// GET /api/students/:id
+router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const { firstName, lastName, groupId, studentCode } = req.body;
-    if (!firstName || !lastName || !groupId) {
-      return res.status(400).json({ error: "Ism, familiya va guruh kerak" });
+    const { role, id: userId } = req.user;
+    const studentId = req.params.id.toUpperCase();
+
+    // Student faqat o'zini ko'ra oladi
+    if (role === "student" && userId !== studentId) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
     }
 
-    // Avval users jadvaliga qo'shamiz
-    const userRes = await pool.query(
-      `INSERT INTO users (first_name, last_name, role)
-       VALUES ($1, $2, 'student') RETURNING id`,
-      [firstName, lastName],
+    const studentRes = await pool.query(
+      `SELECT s.id,
+              u.first_name, u.last_name,
+              u.first_name || ' ' || u.last_name AS full_name,
+              s.student_code, s.group_id,
+              g.name AS group_name,
+              c.name AS course_name
+       FROM students s
+       JOIN  users   u ON u.id = s.id
+       LEFT JOIN groups  g ON g.id = s.group_id
+       LEFT JOIN courses c ON c.id = g.course_id
+       WHERE s.id = $1`,
+      [studentId],
     );
-    const userId = userRes.rows[0].id;
 
-    // Keyin students jadvaliga
-    const result = await pool.query(
+    if (studentRes.rows.length === 0) {
+      return res.status(404).json({ error: "Talaba topilmadi" });
+    }
+
+    const student = studentRes.rows[0];
+
+    // Master/Curator faqat o'z guruhidagi talabani ko'ra oladi
+    if (ROLES.TEACHER.includes(role)) {
+      const assigned = await pool.query(
+        "SELECT group_id FROM group_assignments WHERE user_id = $1 AND group_id = $2",
+        [userId, student.group_id],
+      );
+      if (assigned.rows.length === 0) {
+        return res.status(403).json({ error: "Bu talabaga ruxsatingiz yo'q" });
+      }
+    }
+
+    // Davomat tarixi (oxirgi 30 kun)
+    const historyRes = await pool.query(
+      `SELECT date, status, scanned_at
+       FROM attendance
+       WHERE student_id = $1
+       ORDER BY date DESC
+       LIMIT 30`,
+      [studentId],
+    );
+
+    // Statistika
+    const statsRes = await pool.query(
+      `SELECT
+         COUNT(*)                                           AS total_days,
+         COUNT(CASE WHEN status = 'present' THEN 1 END)    AS present_days,
+         ROUND(
+           COUNT(CASE WHEN status='present' THEN 1 END)::decimal
+           / NULLIF(COUNT(*), 0) * 100, 1
+         )                                                  AS rate
+       FROM attendance
+       WHERE student_id = $1
+         AND date >= CURRENT_DATE - INTERVAL '30 days'`,
+      [studentId],
+    );
+
+    res.json({
+      student,
+      history: historyRes.rows,
+      stats: statsRes.rows[0],
+    });
+  } catch (err) {
+    console.error("Student detail xatosi:", err.message);
+    res.status(500).json({ error: "Server xatosi" });
+  }
+});
+
+// POST /api/students  (faqat director/deputy)
+router.post("/", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { id, password, firstName, lastName, groupId, studentCode } =
+      req.body;
+
+    if (!id || !password || !firstName || !lastName || !groupId) {
+      return res.status(400).json({
+        error: "id, password, firstName, lastName, groupId — barchasi kerak",
+      });
+    }
+
+    const upperid = id.toUpperCase().trim();
+
+    const existing = await pool.query("SELECT id FROM users WHERE id = $1", [
+      upperid,
+    ]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Bu ID allaqachon mavjud" });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      `INSERT INTO users (id, password, role, first_name, last_name)
+       VALUES ($1, $2, 'student', $3, $4)`,
+      [upperid, hashed, firstName.trim(), lastName.trim()],
+    );
+
+    await pool.query(
       `INSERT INTO students (id, group_id, student_code)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [userId, groupId, studentCode || null],
+       VALUES ($1, $2, $3)`,
+      [upperid, parseInt(groupId), studentCode || upperid],
     );
 
     res.status(201).json({
+      message: "Talaba muvaffaqiyatli qo'shildi",
       student: {
-        ...result.rows[0],
+        id: upperid,
         full_name: `${firstName} ${lastName}`,
+        group_id: groupId,
       },
     });
   } catch (err) {
@@ -82,71 +194,50 @@ router.post("/", authMiddleware, requireRole("admin"), async (req, res) => {
   }
 });
 
-// GET /api/students/:id — Talaba tafsiloti
-router.get("/:id", authMiddleware, async (req, res) => {
+// PUT /api/students/:id  (faqat director/deputy)
+router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const student = await pool.query(
-      `
-      SELECT s.id,
-             u.first_name || ' ' || u.last_name AS full_name,
-             u.first_name, u.last_name,
-             s.student_code, s.group_id,
-             g.name AS group_name,
-             c.name AS course_name
-      FROM students s
-      JOIN users u ON u.id = s.id
-      LEFT JOIN groups  g ON g.id = s.group_id
-      LEFT JOIN courses c ON c.id = g.course_id
-      WHERE s.id = $1
-    `,
-      [req.params.id],
-    );
+    const studentId = req.params.id.toUpperCase();
+    const { firstName, lastName, groupId, studentCode } = req.body;
 
-    if (student.rows.length === 0) {
-      return res.status(404).json({ error: "Talaba topilmadi" });
+    if (firstName || lastName) {
+      await pool.query(
+        `UPDATE users SET
+           first_name = COALESCE($1, first_name),
+           last_name  = COALESCE($2, last_name),
+           updated_at = NOW()
+         WHERE id = $3`,
+        [firstName || null, lastName || null, studentId],
+      );
     }
 
-    if (
-      req.user.role === "teacher" &&
-      student.rows[0].group_id !== req.user.group_id
-    ) {
-      return res.status(403).json({ error: "Ruxsat yo'q" });
+    if (groupId || studentCode) {
+      await pool.query(
+        `UPDATE students SET
+           group_id     = COALESCE($1, group_id),
+           student_code = COALESCE($2, student_code),
+           updated_at   = NOW()
+         WHERE id = $3`,
+        [groupId ? parseInt(groupId) : null, studentCode || null, studentId],
+      );
     }
 
-    const history = await pool.query(
-      `
-      SELECT date, status, scanned_at
-      FROM attendance
-      WHERE student_id = $1
-      ORDER BY date DESC
-      LIMIT 30
-    `,
-      [req.params.id],
-    );
-
-    const stats = await pool.query(
-      `
-      SELECT
-        COUNT(*) AS total_days,
-        COUNT(CASE WHEN status = 'present' THEN 1 END) AS present_days,
-        ROUND(
-          COUNT(CASE WHEN status='present' THEN 1 END)::decimal
-          / NULLIF(COUNT(*),0) * 100, 1
-        ) AS rate
-      FROM attendance
-      WHERE student_id = $1
-        AND date >= CURRENT_DATE - INTERVAL '30 days'
-    `,
-      [req.params.id],
-    );
-
-    res.json({
-      student: student.rows[0],
-      history: history.rows,
-      stats: stats.rows[0],
-    });
+    res.json({ message: "Talaba ma'lumotlari yangilandi" });
   } catch (err) {
-    console.error("Student detail xatosi:", err.message);
+    console.error("Update student xatosi:", err.message);
+    res.status(500).json({ error: "Server xatosi" });
+  }
+});
+
+// DELETE /api/students/:id  (faqat director/deputy)
+router.delete("/:id", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const studentId = req.params.id.toUpperCase();
+    // CASCADE tufayli students va attendance ham o'chadi
+    await pool.query("DELETE FROM users WHERE id = $1", [studentId]);
+    res.json({ message: "Talaba o'chirildi" });
+  } catch (err) {
+    console.error("Delete student xatosi:", err.message);
     res.status(500).json({ error: "Server xatosi" });
   }
 });
