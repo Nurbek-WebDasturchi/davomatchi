@@ -72,12 +72,12 @@ async function migrate() {
     `);
     console.log("  ✓ students");
 
-    // ATTENDANCE
+    // ATTENDANCE — group_id NOT NULL emas, fkey alohida qo'shiladi
     await client.query(`
       CREATE TABLE IF NOT EXISTS attendance (
         id         SERIAL PRIMARY KEY,
         student_id VARCHAR(10) NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-        group_id   INTEGER     NOT NULL REFERENCES groups(id)   ON DELETE SET NULL,
+        group_id   INTEGER,
         date       DATE        NOT NULL DEFAULT CURRENT_DATE,
         status     VARCHAR(20) NOT NULL DEFAULT 'present'
                    CHECK (status IN ('present','absent','late')),
@@ -88,6 +88,23 @@ async function migrate() {
       )
     `);
     console.log("  ✓ attendance");
+
+    // group_id foreign key — mavjud bo'lmasa qo'shamiz
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'attendance_group_id_fkey'
+            AND table_name = 'attendance'
+        ) THEN
+          ALTER TABLE attendance
+            ADD CONSTRAINT attendance_group_id_fkey
+            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+    console.log("  ✓ attendance fkey");
 
     // INDEXES
     const indexes = [
