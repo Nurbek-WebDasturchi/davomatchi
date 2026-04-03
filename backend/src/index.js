@@ -11,6 +11,11 @@ const seed = require("./db/seed");
 const app = express();
 
 // ===================================
+// TRUST PROXY — Render / production uchun ZARUR
+// ===================================
+app.set("trust proxy", 1);
+
+// ===================================
 // MIDDLEWARE
 // ===================================
 
@@ -36,6 +41,8 @@ app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
     message: { error: "Juda ko'p so'rov." },
   }),
 );
@@ -87,42 +94,34 @@ app.listen(PORT, async () => {
   console.log(`🚀 Backend http://localhost:${PORT} da ishlamoqda`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
 
-  // ===================================
-  // DATABASE MIGRATION (TRY-CATCH)
-  // ===================================
+  // Database ulanishini tekshirish
+  const dbOk = await pool.testConnection();
+  if (!dbOk) {
+    console.error("❌ Database ulanmadi! DATABASE_URL ni tekshiring.");
+    console.error("   Supabase Transaction Pooler URL kerak:");
+    console.error(
+      "   postgresql://postgres.xxx:[PASS]@aws-0-xxx.pooler.supabase.com:6543/postgres",
+    );
+    return;
+  }
 
   try {
     console.log("🔄 Database migration boshlanmoqda...");
     await migrate();
     console.log("✅ Migration muvaffaqiyat bo'ldi!");
   } catch (err) {
-    console.warn("⚠️  Migration xato (production uchun normal):");
-    console.warn("   Error:", err.message);
-    console.warn("   Server davom etmoqda...");
-    // Server xatoga qaramay davom etsin!
+    console.warn("⚠️  Migration xato:", err.message);
   }
-
-  // ===================================
-  // DATABASE SEED (TRY-CATCH)
-  // ===================================
 
   try {
     console.log("🌱 Seed data qo'shilmoqda...");
     await seed();
-    console.log("✅ Seed muvaffaqiyat bo'ldi!");
   } catch (err) {
-    console.warn("⚠️  Seed xato (production uchun normal):");
-    console.warn("   Error:", err.message);
-    console.warn("   Server davom etmoqda...");
-    // Server xatoga qaramay davom etsin!
+    console.warn("⚠️  Seed xato:", err.message);
   }
 
-  // ===================================
-  // KEEP-ALIVE (Render Free Tier uchun)
-  // ===================================
-
+  // KEEP-ALIVE
   const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
-
   cron.schedule("*/10 * * * *", async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/health`);
@@ -135,10 +134,6 @@ app.listen(PORT, async () => {
   console.log("⏰ Keep-alive cron job ishga tushdi (har 10 daqiqada)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
-
-// ===================================
-// GRACEFUL SHUTDOWN
-// ===================================
 
 process.on("SIGTERM", () => {
   console.log("SIGTERM signal received: closing HTTP server");
