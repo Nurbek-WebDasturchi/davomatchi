@@ -89,23 +89,6 @@ async function migrate() {
     `);
     console.log("  ✓ attendance");
 
-    // group_id foreign key — mavjud bo'lmasa qo'shamiz
-    await client.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE constraint_name = 'attendance_group_id_fkey'
-            AND table_name = 'attendance'
-        ) THEN
-          ALTER TABLE attendance
-            ADD CONSTRAINT attendance_group_id_fkey
-            FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL;
-        END IF;
-      END $$;
-    `);
-    console.log("  ✓ attendance fkey");
-
     // INDEXES
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_attendance_date    ON attendance(date)`,

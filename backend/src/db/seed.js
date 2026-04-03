@@ -23,7 +23,7 @@ async function seed() {
     const hash = (pw) => bcrypt.hash(pw, 10);
 
     const defaultUsers = [
-      ["DR0001", "director123", "director", "Jasur", "Karimov"],
+      ["DR0001", "director123", "director", "Jasur", "Xalmuratov"],
       ["DP0001", "deputy123", "deputy", "Malika", "Yusupova"],
       ["AM0001", "manager123", "attendance_manager", "Bobur", "Toshmatov"],
     ];
