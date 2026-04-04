@@ -22,15 +22,13 @@ export default function LoginPage() {
     const result = await login(userId.trim(), password);
     if (result.success) {
       const role = result.user.role;
-      if (role === "student") {
-        navigate("/profile", { replace: true });
-      } else if (["master", "curator"].includes(role)) {
+      if (role === "student") navigate("/profile", { replace: true });
+      else if (["master", "curator"].includes(role))
         navigate("/my-groups", { replace: true });
-      } else if (["director", "deputy"].includes(role)) {
+      else if (["director", "deputy"].includes(role))
         navigate("/", { replace: true });
-      } else if (role === "attendance_manager") {
+      else if (role === "attendance_manager")
         navigate("/mark", { replace: true });
-      }
     } else {
       setError(result.error);
     }
@@ -103,7 +101,7 @@ export default function LoginPage() {
             type="text"
             value={userId}
             onChange={(e) => setUserId(e.target.value.toUpperCase())}
-            placeholder="DR0001"
+            placeholder="DR0001 yoki 125001"
             maxLength={10}
             style={{
               width: "100%",
@@ -194,7 +192,6 @@ export default function LoginPage() {
             borderRadius: "var(--radius-md)",
             fontSize: "15px",
             fontWeight: 800,
-            transition: "all 0.2s",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -220,7 +217,7 @@ export default function LoginPage() {
         </button>
       </form>
 
-      {/* Rol izohi */}
+      {/* ID formatlar */}
       <div
         style={{
           marginTop: "32px",
@@ -241,19 +238,29 @@ export default function LoginPage() {
           ID FORMATLARI
         </p>
         {[
-          { id: "DR****", label: "Direktor" },
-          { id: "DP****", label: "Direktor o'rinbosari" },
-          { id: "AM****", label: "Davomatchi" },
-          { id: "MA****", label: "Usta o'qituvchi" },
-          { id: "CU****", label: "Kurator" },
-          { id: "ST****", label: "O'quvchi" },
-        ].map(({ id, label }) => (
+          { id: "DR0001", label: "Direktor", example: "director123" },
+          { id: "DP0001", label: "Direktor o'rinbosari", example: "deputy123" },
+          { id: "AM0001", label: "Davomatchi", example: "manager123" },
+          { id: "MA0001", label: "Usta o'qituvchi", example: "master123" },
+          { id: "CU0001", label: "Kurator", example: "curator123" },
+          {
+            id: "125001",
+            label: "O'quvchi (1-25 guruh)",
+            example: "talaba123",
+          },
+          {
+            id: "224001",
+            label: "O'quvchi (2-24 guruh)",
+            example: "talaba123",
+          },
+        ].map(({ id, label, example }) => (
           <div
             key={id}
             style={{
               display: "flex",
               justifyContent: "space-between",
-              padding: "4px 0",
+              alignItems: "center",
+              padding: "5px 0",
               borderBottom: "1px solid var(--border)",
             }}>
             <span
@@ -264,11 +271,27 @@ export default function LoginPage() {
               }}>
               {id}
             </span>
-            <span style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
               {label}
             </span>
           </div>
         ))}
+        <p
+          style={{
+            fontSize: "10px",
+            color: "var(--text-muted)",
+            marginTop: "8px",
+            textAlign: "center",
+          }}>
+          O'quvchilar paroli:{" "}
+          <span
+            style={{
+              color: "var(--accent-blue-light)",
+              fontFamily: "var(--font-mono)",
+            }}>
+            talaba123
+          </span>
+        </p>
       </div>
     </div>
   );

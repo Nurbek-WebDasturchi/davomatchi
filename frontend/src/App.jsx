@@ -27,7 +27,7 @@ function HomeRedirect() {
   if (loading) return <LoadingSpinner />;
   if (!user) return <Navigate to="/login" replace />;
 
-  const role = user.role;
+  const { role } = user;
   if (role === "student") return <Navigate to="/profile" replace />;
   if (["master", "curator"].includes(role))
     return <Navigate to="/my-groups" replace />;
@@ -49,7 +49,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Bosh sahifa — rolga qarab yo'naltiradi */}
+      {/* Bosh sahifa */}
       <Route
         path="/"
         element={
@@ -59,7 +59,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Director / Deputy — faqat ko'rish, skaner YO'Q */}
+      {/* Director / Deputy */}
       <Route
         path="/dashboard"
         element={
@@ -76,6 +76,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* QR ko'rsatish — director, deputy, master, curator */}
       <Route
         path="/qr/:id"
         element={
@@ -85,7 +87,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Barcha guruhlar — director, deputy, attendance_manager */}
+      {/* Barcha guruhlar */}
       <Route
         path="/groups-list"
         element={
@@ -122,7 +124,7 @@ function AppRoutes() {
         }
       />
 
-      {/* Davomatchi — faqat attendance_manager */}
+      {/* Davomatchi */}
       <Route
         path="/mark"
         element={
@@ -132,12 +134,11 @@ function AppRoutes() {
         }
       />
 
-      {/* QR Scanner — director/deputy EMAS, qolganlar ha */}
+      {/* QR Scanner — FAQAT STUDENT */}
       <Route
         path="/scan"
         element={
-          <ProtectedRoute
-            roles={["student", "master", "curator", "attendance_manager"]}>
+          <ProtectedRoute roles={["student"]}>
             <QRScannerPage />
           </ProtectedRoute>
         }

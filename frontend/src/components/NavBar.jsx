@@ -7,7 +7,6 @@ export default function NavBar() {
   const location = useLocation();
   const { user } = useAuth();
 
-  // User yo'q bo'lsa ko'rsatma
   if (!user) return null;
 
   const role = user.role;
@@ -20,24 +19,22 @@ export default function NavBar() {
       { path: "/analytics", icon: "📊", label: "Tahlil" },
     ];
   } else if (role === "master" || role === "curator") {
-    items = [
-      { path: "/my-groups", icon: "🏠", label: "Guruhlar" },
-      { path: "/scan", icon: "📷", label: "Skaner" },
-    ];
+    // Scan YO'Q — ular student emas, QR skanerlash kerak emas
+    items = [{ path: "/my-groups", icon: "🏠", label: "Guruhlar" }];
   } else if (role === "attendance_manager") {
+    // Scan YO'Q — ular qo'lda ID kiritadi
     items = [
       { path: "/mark", icon: "📋", label: "Davomat" },
       { path: "/groups-list", icon: "👥", label: "Guruhlar" },
-      { path: "/scan", icon: "📷", label: "Skaner" },
     ];
   } else if (role === "student") {
+    // Faqat student QR skanerlaydi
     items = [
       { path: "/profile", icon: "👤", label: "Profil" },
       { path: "/scan", icon: "📷", label: "Skaner" },
     ];
   }
 
-  // Items bo'sh bo'lsa ko'rsatma
   if (items.length === 0) return null;
 
   return (

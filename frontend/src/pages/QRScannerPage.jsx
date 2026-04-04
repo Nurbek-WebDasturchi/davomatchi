@@ -18,12 +18,18 @@ export default function QRScannerPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Faqat student kirishi mumkin
+    if (user?.role !== "student") {
+      navigate("/", { replace: true });
+      return;
+    }
     startScanner();
     return () => stopScanner();
   }, []);
 
   const startScanner = async () => {
     setError(null);
+    setResult(null);
     try {
       const reader = new BrowserQRCodeReader();
       readerRef.current = reader;
@@ -47,7 +53,7 @@ export default function QRScannerPage() {
         async (res, err) => {
           if (!res) return;
 
-          // 3 soniyada bir marta
+          // 3 soniyada bir marta skanerlash
           const now = Date.now();
           if (lastScan.current && now - lastScan.current < 3000) return;
           lastScan.current = now;
@@ -55,10 +61,13 @@ export default function QRScannerPage() {
           try {
             const data = JSON.parse(res.getText());
             if (data.qrToken) {
+              stopScanner();
               await processAttendance(data.qrToken);
+            } else {
+              setError("Bu to'g'ri guruh QR kodi emas");
             }
           } catch {
-            // JSON emas
+            setError("QR kod o'qilmadi. Qayta urinib ko'ring.");
           }
         },
       );
@@ -76,16 +85,15 @@ export default function QRScannerPage() {
 
   const processAttendance = async (qrToken) => {
     setLoading(true);
-    setResult(null);
+    setError(null);
     try {
-      // Student o'zining ID sini avtomatik yuboradi
       const res = await api.post("/attendance/scan", {
         qrToken,
         studentId: user.id,
       });
       setResult(res.data);
 
-      // Telegram WebApp ga yuborish
+      // Telegram WebApp ga xabar yuborish
       window.Telegram?.WebApp?.sendData(
         JSON.stringify({
           type: res.data.alreadyMarked ? "already_marked" : "attendance_marked",
@@ -93,7 +101,8 @@ export default function QRScannerPage() {
         }),
       );
     } catch (err) {
-      setError(err.response?.data?.error || "Xatolik yuz berdi");
+      const msg = err.response?.data?.error || "Xatolik yuz berdi";
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -103,6 +112,7 @@ export default function QRScannerPage() {
     setResult(null);
     setError(null);
     lastScan.current = null;
+    startScanner();
   };
 
   return (
@@ -137,15 +147,13 @@ export default function QRScannerPage() {
         <div>
           <h1 style={{ fontSize: "17px", fontWeight: 800 }}>📷 QR Skaner</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "11px" }}>
-            {user?.role === "student"
-              ? `${user?.firstName} ${user?.lastName} — davomat belgilash`
-              : "Davomat belgilash"}
+            {user?.firstName} {user?.lastName} — davomat belgilash
           </p>
         </div>
       </div>
 
       <div style={{ padding: "20px" }}>
-        {/* Natija ekrani */}
+        {/* ── NATIJA EKRANI ── */}
         {result ? (
           <div style={{ animation: "slideUp 0.35s ease forwards" }}>
             <div
@@ -184,6 +192,7 @@ export default function QRScannerPage() {
                 }}>
                 {result.message}
               </p>
+
               <div
                 style={{
                   background: "var(--bg-secondary)",
@@ -200,9 +209,9 @@ export default function QRScannerPage() {
                   {
                     label: "🕐 Vaqt",
                     val: result.attendance?.scannedAt
-                      ? new Date(result.attendance.scannedAt).toLocaleString(
-                          "uz-UZ",
-                        )
+                      ? new Date(
+                          result.attendance.scannedAt,
+                        ).toLocaleTimeString("uz-UZ")
                       : "—",
                   },
                 ].map(({ label, val }) => (
@@ -226,6 +235,7 @@ export default function QRScannerPage() {
                 ))}
               </div>
             </div>
+
             <button
               onClick={reset}
               style={{
@@ -241,10 +251,10 @@ export default function QRScannerPage() {
             </button>
           </div>
         ) : (
-          /* Skaner ekrani */
+          /* ── SKANER EKRANI ── */
           <div
             style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {/* Kamera */}
+            {/* Kamera oynasi */}
             <div
               style={{
                 position: "relative",
@@ -264,7 +274,7 @@ export default function QRScannerPage() {
                 }}
               />
 
-              {/* Skaner animatsiyasi */}
+              {/* Burchak ko'rsatkichlari */}
               {scanning && !loading && (
                 <div style={{ position: "absolute", inset: 0 }}>
                   {[
@@ -292,7 +302,7 @@ export default function QRScannerPage() {
                       borderBottom: "3px solid",
                       borderRight: "3px solid",
                     },
-                  ].map((style, i) => (
+                  ].map((s, i) => (
                     <div
                       key={i}
                       style={{
@@ -300,7 +310,7 @@ export default function QRScannerPage() {
                         width: 40,
                         height: 40,
                         borderColor: "var(--accent-blue)",
-                        ...style,
+                        ...s,
                       }}
                     />
                   ))}
@@ -319,8 +329,8 @@ export default function QRScannerPage() {
                 </div>
               )}
 
-              {/* Xato */}
-              {error && (
+              {/* Xato overlay */}
+              {error && !loading && (
                 <div
                   style={{
                     position: "absolute",
@@ -333,14 +343,14 @@ export default function QRScannerPage() {
                     padding: "20px",
                     textAlign: "center",
                   }}>
-                  <p style={{ fontSize: "36px", marginBottom: "10px" }}>📷</p>
+                  <p style={{ fontSize: "36px", marginBottom: "10px" }}>⚠️</p>
                   <p
                     style={{
                       color: "var(--accent-red)",
                       fontWeight: 700,
                       marginBottom: "6px",
                     }}>
-                    Kamera xatosi
+                    Xatolik
                   </p>
                   <p
                     style={{
@@ -352,7 +362,7 @@ export default function QRScannerPage() {
                 </div>
               )}
 
-              {/* Yuklanmoqda */}
+              {/* Yuklanmoqda overlay */}
               {loading && (
                 <div
                   style={{
@@ -360,8 +370,10 @@ export default function QRScannerPage() {
                     inset: 0,
                     background: "rgba(15,23,42,0.85)",
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
+                    gap: "12px",
                   }}>
                   <div
                     style={{
@@ -373,12 +385,19 @@ export default function QRScannerPage() {
                       animation: "spin 0.8s linear infinite",
                     }}
                   />
+                  <p
+                    style={{
+                      color: "var(--text-secondary)",
+                      fontSize: "12px",
+                    }}>
+                    Davomat belgilanmoqda...
+                  </p>
                 </div>
               )}
             </div>
 
-            {/* Holat matni */}
-            {scanning && !loading ? (
+            {/* Holat / tugma */}
+            {scanning && !loading && !error ? (
               <p
                 style={{
                   textAlign: "center",
@@ -388,7 +407,21 @@ export default function QRScannerPage() {
                 }}>
                 📷 Guruh QR kodini kameraga tutib turing...
               </p>
-            ) : !error ? (
+            ) : error ? (
+              <button
+                onClick={reset}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  background: "var(--accent-blue)",
+                  color: "#fff",
+                  borderRadius: "var(--radius-lg)",
+                  fontSize: "14px",
+                  fontWeight: 800,
+                }}>
+                🔄 Qayta urinish
+              </button>
+            ) : !loading ? (
               <button
                 onClick={startScanner}
                 style={{
@@ -402,21 +435,7 @@ export default function QRScannerPage() {
                 }}>
                 ▶️ Kamerani yoqish
               </button>
-            ) : (
-              <button
-                onClick={startScanner}
-                style={{
-                  width: "100%",
-                  padding: "14px",
-                  background: "var(--accent-blue)",
-                  color: "#fff",
-                  borderRadius: "var(--radius-lg)",
-                  fontSize: "14px",
-                  fontWeight: 800,
-                }}>
-                🔄 Qayta urinish
-              </button>
-            )}
+            ) : null}
 
             {/* Ko'rsatmalar */}
             <div
@@ -439,6 +458,7 @@ export default function QRScannerPage() {
                 "1. Sinfxonadagi guruh QR kodini toping",
                 "2. Kamerani QR kodga to'g'rilang",
                 "3. Tizim avtomatik davomatni belgilaydi",
+                "4. Kun davomida faqat bir marta belgilanadi",
               ].map((t) => (
                 <p
                   key={t}
