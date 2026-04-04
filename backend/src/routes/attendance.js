@@ -213,7 +213,8 @@ router.get("/all-groups", authMiddleware, async (req, res) => {
 // GET /api/attendance/group/:groupId
 router.get("/group/:groupId", authMiddleware, async (req, res) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    // parseInt EMAS — UUID string sifatida olamiz
+    const groupId = req.params.groupId;
     const date = req.query.date || new Date().toISOString().split("T")[0];
     const user = req.user;
 
@@ -310,6 +311,8 @@ router.get(
   async (req, res) => {
     try {
       const today = new Date().toISOString().split("T")[0];
+      // courseId ham UUID
+      const courseId = req.params.courseId;
 
       const groups = await pool.query(
         `SELECT g.id, g.name, g.qr_token,
@@ -320,7 +323,7 @@ router.get(
        LEFT JOIN attendance a ON a.student_id = s.id AND a.date = $1
        WHERE g.course_id = $2
        GROUP BY g.id, g.name, g.qr_token ORDER BY g.name`,
-        [today, req.params.courseId],
+        [today, courseId],
       );
 
       res.json({ groups: groups.rows, date: today });
