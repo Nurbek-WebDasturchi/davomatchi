@@ -13,9 +13,17 @@ export default function GroupDetailPage() {
 
   const [data, setData] = useState(null);
   const [groups, setGroups] = useState(null);
+  const [qr, setQr] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [qrLoading, setQrLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [showQr, setShowQr] = useState(false);
+
+  // QR ko'rsatish huquqi: director, deputy, master, curator
+  const canSeeQr = ["director", "deputy", "master", "curator"].includes(
+    user?.role,
+  );
 
   useEffect(() => {
     fetchData();
@@ -29,7 +37,6 @@ export default function GroupDetailPage() {
         setGroups(res.data.groups);
       } else {
         const res = await api.get(`/attendance/group/${id}?date=${date}`);
-        console.log("API response:", res.data);
         setData(res.data);
       }
     } catch (err) {
@@ -39,9 +46,32 @@ export default function GroupDetailPage() {
     }
   };
 
-  // Talaba ismini xavfsiz olish
-  const getFullName = (s) =>
-    s?.full_name || s?.name || s?.student_name || "Noma'lum";
+  const loadQr = async () => {
+    if (qr) {
+      setShowQr(!showQr);
+      return;
+    }
+    setQrLoading(true);
+    try {
+      const res = await api.get(`/groups/${id}/qr`);
+      setQr(res.data);
+      setShowQr(true);
+    } catch (err) {
+      console.error("QR xatosi:", err.message);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const handleDownloadQr = () => {
+    if (!qr?.qrCode) return;
+    const a = document.createElement("a");
+    a.href = qr.qrCode;
+    a.download = `${qr.groupName}-QR.png`;
+    a.click();
+  };
+
+  const getFullName = (s) => s?.full_name || s?.name || "Noma'lum";
 
   const filtered = data?.students?.filter((s) => {
     if (filter === "present") return s.is_present;
@@ -79,7 +109,7 @@ export default function GroupDetailPage() {
         background: "var(--bg-primary)",
         paddingBottom: "80px",
       }}>
-      {/* Header */}
+      {/* ── Header ── */}
       <div
         style={{
           background: "var(--bg-secondary)",
@@ -104,6 +134,7 @@ export default function GroupDetailPage() {
           }}>
           ←
         </button>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1
             style={{
@@ -121,24 +152,36 @@ export default function GroupDetailPage() {
               : data?.group?.course_name}
           </p>
         </div>
-        {!isCourse && user.role === "admin" && (
+
+        {/* QR tugmasi — director, deputy, master, curator uchun */}
+        {!isCourse && canSeeQr && (
           <button
-            onClick={() => navigate(`/qr/${id}`)}
+            onClick={loadQr}
+            disabled={qrLoading}
             style={{
-              background: "rgba(168,85,247,0.12)",
+              background: showQr
+                ? "rgba(168,85,247,0.2)"
+                : "rgba(168,85,247,0.12)",
               border: "1px solid rgba(168,85,247,0.3)",
               borderRadius: "8px",
               padding: "7px 12px",
-              color: "var(--accent-purple)",
+              color: "#a855f7",
               fontSize: "11px",
               fontWeight: 700,
+              opacity: qrLoading ? 0.6 : 1,
             }}>
-            🔲 QR
+            {qrLoading ? "..." : "🔲 QR"}
           </button>
         )}
       </div>
 
-      <div style={{ padding: "16px 20px" }}>
+      <div
+        style={{
+          padding: "16px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "14px",
+        }}>
         {/* ─── Kurs ko'rinishi ─── */}
         {isCourse ? (
           <div
@@ -175,22 +218,11 @@ export default function GroupDetailPage() {
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "flex-start",
                       marginBottom: "10px",
                     }}>
-                    <div>
-                      <p style={{ fontWeight: 800, fontSize: "15px" }}>
-                        {g.name}
-                      </p>
-                      <p
-                        style={{
-                          color: "var(--text-muted)",
-                          fontSize: "11px",
-                          marginTop: "2px",
-                        }}>
-                        👨‍🏫 {g.teacher_name || "Belgilanmagan"}
-                      </p>
-                    </div>
+                    <p style={{ fontWeight: 800, fontSize: "15px" }}>
+                      {g.name}
+                    </p>
                     <span
                       style={{
                         fontSize: "13px",
@@ -203,20 +235,14 @@ export default function GroupDetailPage() {
                       {p}%
                     </span>
                   </div>
-                  <div
+                  <p
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
+                      color: "var(--text-secondary)",
+                      fontSize: "11px",
                       marginBottom: "8px",
                     }}>
-                    <span
-                      style={{
-                        color: "var(--text-secondary)",
-                        fontSize: "11px",
-                      }}>
-                      {g.present_count} / {g.total_students} talaba
-                    </span>
-                  </div>
+                    {g.present_count} / {g.total_students} talaba
+                  </p>
                   <div
                     style={{
                       height: "5px",
@@ -239,9 +265,92 @@ export default function GroupDetailPage() {
           </div>
         ) : (
           /* ─── Guruh ko'rinishi ─── */
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {/* Sana tanlash */}
+          <>
+            {/* ── QR KOD BLOKI ── */}
+            {showQr && qr && (
+              <div
+                style={{
+                  background: "var(--bg-card)",
+                  border: "1px solid rgba(168,85,247,0.3)",
+                  borderRadius: "var(--radius-xl)",
+                  padding: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "12px",
+                  animation: "slideUp 0.3s ease forwards",
+                }}>
+                <p
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    color: "#a855f7",
+                  }}>
+                  🔲 {qr.groupName} — QR Kod
+                </p>
+
+                {/* QR rasm */}
+                <div
+                  style={{
+                    background: "#fff",
+                    borderRadius: "12px",
+                    padding: "12px",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                  }}>
+                  <img
+                    src={qr.qrCode}
+                    alt="QR Code"
+                    style={{
+                      width: "180px",
+                      height: "180px",
+                      display: "block",
+                    }}
+                  />
+                </div>
+
+                <p
+                  style={{
+                    color: "var(--text-secondary)",
+                    fontSize: "11px",
+                    textAlign: "center",
+                  }}>
+                  Talabalar bu kodni Telegram bot orqali skanerlaydi
+                </p>
+
+                {/* Yuklab olish tugmasi */}
+                <button
+                  onClick={handleDownloadQr}
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    background: "rgba(168,85,247,0.12)",
+                    border: "1px solid rgba(168,85,247,0.3)",
+                    borderRadius: "var(--radius-md)",
+                    color: "#a855f7",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                  }}>
+                  ⬇️ QR Kodini yuklab olish
+                </button>
+
+                {/* Yopish */}
+                <button
+                  onClick={() => setShowQr(false)}
+                  style={{
+                    width: "100%",
+                    padding: "8px",
+                    background: "transparent",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    color: "var(--text-muted)",
+                    fontSize: "12px",
+                  }}>
+                  Yopish
+                </button>
+              </div>
+            )}
+
+            {/* ── Sana tanlash ── */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ fontSize: "16px" }}>📅</span>
               <input
@@ -261,7 +370,7 @@ export default function GroupDetailPage() {
               />
             </div>
 
-            {/* Statistika */}
+            {/* ── Statistika ── */}
             <div
               style={{
                 display: "grid",
@@ -295,7 +404,7 @@ export default function GroupDetailPage() {
                     textAlign: "center",
                   }}>
                   <p style={{ fontSize: "20px", fontWeight: 900, color }}>
-                    {val}
+                    {val ?? "—"}
                   </p>
                   <p
                     style={{
@@ -310,7 +419,7 @@ export default function GroupDetailPage() {
               ))}
             </div>
 
-            {/* Filter */}
+            {/* ── Filter ── */}
             <div
               style={{
                 display: "flex",
@@ -321,9 +430,18 @@ export default function GroupDetailPage() {
                 padding: "4px",
               }}>
               {[
-                { key: "all", label: "Barchasi" },
-                { key: "present", label: "✅ Keldi" },
-                { key: "absent", label: "❌ Kelmadi" },
+                {
+                  key: "all",
+                  label: `Barchasi (${data?.students?.length || 0})`,
+                },
+                {
+                  key: "present",
+                  label: `✅ Keldi (${data?.presentCount || 0})`,
+                },
+                {
+                  key: "absent",
+                  label: `❌ Kelmadi (${(data?.totalStudents || 0) - (data?.presentCount || 0)})`,
+                },
               ].map(({ key, label }) => (
                 <button
                   key={key}
@@ -332,7 +450,7 @@ export default function GroupDetailPage() {
                     flex: 1,
                     padding: "7px 4px",
                     borderRadius: "8px",
-                    fontSize: "11px",
+                    fontSize: "10px",
                     fontWeight: 700,
                     background:
                       filter === key ? "var(--accent-blue)" : "transparent",
@@ -344,7 +462,7 @@ export default function GroupDetailPage() {
               ))}
             </div>
 
-            {/* Talabalar ro'yxati */}
+            {/* ── Talabalar ro'yxati ── */}
             {filtered?.length === 0 ? (
               <div
                 style={{
@@ -360,10 +478,12 @@ export default function GroupDetailPage() {
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "7px",
+                  gap: "6px",
                 }}>
                 {filtered?.map((s, i) => {
                   const fullName = getFullName(s);
+                  const isPresent = s.is_present;
+
                   return (
                     <div
                       key={s.id}
@@ -371,34 +491,44 @@ export default function GroupDetailPage() {
                         display: "flex",
                         alignItems: "center",
                         gap: "10px",
-                        background: "var(--bg-card)",
-                        border: `1px solid ${s.is_present ? "rgba(34,197,94,0.2)" : "var(--border)"}`,
+                        // Yashil yoki qizil background
+                        background: isPresent
+                          ? "rgba(34,197,94,0.08)"
+                          : "rgba(239,68,68,0.06)",
+                        border: `1px solid ${
+                          isPresent
+                            ? "rgba(34,197,94,0.25)"
+                            : "rgba(239,68,68,0.2)"
+                        }`,
                         borderRadius: "var(--radius-md)",
                         padding: "10px 12px",
                         animation: "fadeIn 0.25s ease forwards",
-                        animationDelay: `${i * 0.035}s`,
+                        animationDelay: `${i * 0.03}s`,
                         opacity: 0,
                       }}>
+                      {/* Raqam / Avatar */}
                       <div
                         style={{
-                          width: 34,
-                          height: 34,
+                          width: 36,
+                          height: 36,
                           borderRadius: "50%",
-                          background: s.is_present
-                            ? "rgba(34,197,94,0.12)"
-                            : "rgba(100,116,139,0.12)",
+                          background: isPresent
+                            ? "rgba(34,197,94,0.15)"
+                            : "rgba(239,68,68,0.12)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontWeight: 800,
+                          fontWeight: 900,
                           fontSize: "13px",
-                          color: s.is_present
+                          color: isPresent
                             ? "var(--accent-green)"
-                            : "var(--text-muted)",
+                            : "var(--accent-red)",
                           flexShrink: 0,
                         }}>
-                        {fullName.charAt(0).toUpperCase()}
+                        {i + 1}
                       </div>
+
+                      {/* Ism */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p
                           style={{
@@ -407,6 +537,7 @@ export default function GroupDetailPage() {
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
+                            color: "var(--text-primary)",
                           }}>
                           {fullName}
                         </p>
@@ -415,42 +546,66 @@ export default function GroupDetailPage() {
                             color: "var(--text-muted)",
                             fontSize: "10px",
                           }}>
-                          {s.student_code || "Kod yo'q"}
+                          {s.student_code || s.id || "—"}
                         </p>
                       </div>
+
+                      {/* Status */}
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        {s.is_present ? (
+                        {isPresent ? (
                           <>
-                            <p
+                            <div
                               style={{
-                                color: "var(--accent-green)",
-                                fontSize: "10px",
-                                fontWeight: 700,
+                                background: "rgba(34,197,94,0.15)",
+                                border: "1px solid rgba(34,197,94,0.3)",
+                                borderRadius: "99px",
+                                padding: "3px 10px",
+                                display: "inline-block",
                               }}>
-                              ✅ Keldi
-                            </p>
+                              <p
+                                style={{
+                                  color: "var(--accent-green)",
+                                  fontSize: "11px",
+                                  fontWeight: 800,
+                                }}>
+                                ✅ Keldi
+                              </p>
+                            </div>
                             {s.scanned_at && (
                               <p
                                 style={{
                                   color: "var(--text-muted)",
                                   fontSize: "10px",
+                                  marginTop: "3px",
                                 }}>
                                 {new Date(s.scanned_at).toLocaleTimeString(
                                   "uz-UZ",
-                                  { hour: "2-digit", minute: "2-digit" },
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  },
                                 )}
                               </p>
                             )}
                           </>
                         ) : (
-                          <p
+                          <div
                             style={{
-                              color: "var(--text-muted)",
-                              fontSize: "10px",
-                              fontWeight: 700,
+                              background: "rgba(239,68,68,0.12)",
+                              border: "1px solid rgba(239,68,68,0.25)",
+                              borderRadius: "99px",
+                              padding: "3px 10px",
+                              display: "inline-block",
                             }}>
-                            ❌ Kelmadi
-                          </p>
+                            <p
+                              style={{
+                                color: "var(--accent-red)",
+                                fontSize: "11px",
+                                fontWeight: 800,
+                              }}>
+                              ❌ Kelmadi
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -458,7 +613,7 @@ export default function GroupDetailPage() {
                 })}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
