@@ -19,16 +19,13 @@ export default function NavBar() {
       { path: "/analytics", icon: "📊", label: "Tahlil" },
     ];
   } else if (role === "master" || role === "curator") {
-    // Scan YO'Q — ular student emas, QR skanerlash kerak emas
     items = [{ path: "/my-groups", icon: "🏠", label: "Guruhlar" }];
   } else if (role === "attendance_manager") {
-    // Scan YO'Q — ular qo'lda ID kiritadi
     items = [
       { path: "/mark", icon: "📋", label: "Davomat" },
       { path: "/groups-list", icon: "👥", label: "Guruhlar" },
     ];
   } else if (role === "student") {
-    // Faqat student QR skanerlaydi
     items = [
       { path: "/profile", icon: "👤", label: "Profil" },
       { path: "/scan", icon: "📷", label: "Skaner" },
@@ -38,55 +35,74 @@ export default function NavBar() {
   if (items.length === 0) return null;
 
   return (
-    <nav
-      style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: "var(--bg-secondary)",
-        borderTop: "1px solid var(--border)",
-        display: "flex",
-        padding: "6px 0 env(safe-area-inset-bottom, 6px)",
-        zIndex: 100,
-      }}>
-      {items.map(({ path, icon, label }) => {
-        const active = location.pathname === path;
-        return (
-          <button
-            key={path}
-            onClick={() => navigate(path)}
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "2px",
-              padding: "8px 4px",
-              background: "transparent",
-              color: active ? "var(--accent-blue-light)" : "var(--text-muted)",
-              fontSize: "10px",
-              fontWeight: active ? 800 : 500,
-              transition: "color 0.2s",
-              border: "none",
-              cursor: "pointer",
-            }}>
-            <span style={{ fontSize: "22px", lineHeight: 1 }}>{icon}</span>
-            <span>{label}</span>
-            {active && (
-              <span
-                style={{
-                  width: "4px",
-                  height: "4px",
-                  borderRadius: "50%",
-                  background: "var(--accent-blue)",
-                  marginTop: "2px",
-                }}
-              />
-            )}
-          </button>
-        );
-      })}
-    </nav>
+    <>
+      {/* 
+        Bu spacer NavBar ning ustida turgan kontentni
+        pastga itarmaydi — NavBar content ustida turadi.
+        Spacer kontentning oxiriga qo'shiladi.
+      */}
+      <div style={{ height: "80px", flexShrink: 0 }} />
+
+      <nav
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "var(--bg-secondary)",
+          borderTop: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "stretch",
+          height: "65px",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          zIndex: 100,
+          boxShadow: "0 -2px 16px rgba(0,0,0,0.2)",
+        }}>
+        {items.map(({ path, icon, label }) => {
+          const active = location.pathname === path;
+          return (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "3px",
+                padding: "8px 4px",
+                background: "transparent",
+                color: active
+                  ? "var(--accent-blue-light)"
+                  : "var(--text-muted)",
+                fontSize: "10px",
+                fontWeight: active ? 800 : 500,
+                border: "none",
+                cursor: "pointer",
+                position: "relative",
+                transition: "color 0.2s",
+              }}>
+              {/* Aktiv — yuqori chiziq */}
+              {active && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: "25%",
+                    right: "25%",
+                    height: "2px",
+                    background: "var(--accent-blue)",
+                    borderRadius: "0 0 3px 3px",
+                  }}
+                />
+              )}
+              <span style={{ fontSize: "22px", lineHeight: 1 }}>{icon}</span>
+              <span>{label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </>
   );
 }

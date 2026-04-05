@@ -57,7 +57,7 @@ export default function MarkAttendancePage() {
       style={{
         minHeight: "100vh",
         background: "var(--bg-primary)",
-        paddingBottom: "80px",
+        paddingBottom: "0",
       }}>
       {/* Header */}
       <div

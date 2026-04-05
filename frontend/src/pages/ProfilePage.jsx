@@ -24,7 +24,7 @@ export default function ProfilePage() {
         alignItems: "center",
         justifyContent: "center",
         padding: "24px",
-        paddingBottom: "100px",
+        paddingBottom: "0",
       }}>
       {/* Avatar */}
       <div

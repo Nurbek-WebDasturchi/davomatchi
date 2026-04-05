@@ -107,7 +107,7 @@ export default function GroupDetailPage() {
       style={{
         minHeight: "100vh",
         background: "var(--bg-primary)",
-        paddingBottom: "80px",
+        paddingBottom: "0",
       }}>
       {/* ── Header ── */}
       <div
