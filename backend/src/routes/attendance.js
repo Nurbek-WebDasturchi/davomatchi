@@ -3,12 +3,57 @@ const router = express.Router();
 const pool = require("../db/pool");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
+// Davomat vaqt oralig'i (O'zbekiston vaqti UTC+5)
+const ATTENDANCE_START = { hour: 8, minute: 30 }; // 08:30
+const ATTENDANCE_END = { hour: 13, minute: 20 }; // 13:20
+
+function getUzbekTime() {
+  const now = new Date();
+  // UTC+5
+  const uzNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+  return uzNow;
+}
+
+function isAttendanceOpen() {
+  const t = getUzbekTime();
+  const h = t.getUTCHours();
+  const m = t.getUTCMinutes();
+  const totalMin = h * 60 + m;
+  const startMin = ATTENDANCE_START.hour * 60 + ATTENDANCE_START.minute;
+  const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
+  return totalMin >= startMin && totalMin <= endMin;
+}
+
 // POST /api/attendance/scan
 router.post("/scan", authMiddleware, async (req, res) => {
   try {
     const { qrToken, studentId } = req.body;
     if (!qrToken || !studentId) {
       return res.status(400).json({ error: "qrToken va studentId kerak" });
+    }
+
+    // ── Vaqt tekshiruvi ──────────────────────────────────────
+    if (!isAttendanceOpen()) {
+      const t = getUzbekTime();
+      const h = t.getUTCHours();
+      const m = t.getUTCMinutes();
+      const totalMin = h * 60 + m;
+      const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
+
+      if (totalMin > endMin) {
+        // 13:20 dan keyin
+        return res.status(403).json({
+          error:
+            "Uzur, siz o'qishga kelmay turib davomat belgilay olmaysiz, hurmatli o'quvchi! 🕐",
+          timeError: true,
+        });
+      } else {
+        // 08:30 dan oldin
+        return res.status(403).json({
+          error: `Davomat vaqti 08:30 da boshlanadi. Hozirgi vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ⏰`,
+          timeError: true,
+        });
+      }
     }
 
     const groupRes = await pool.query(
