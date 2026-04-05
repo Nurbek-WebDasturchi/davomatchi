@@ -101,7 +101,7 @@ export default function LoginPage() {
             type="text"
             value={userId}
             onChange={(e) => setUserId(e.target.value.toUpperCase())}
-            placeholder="DR0001 yoki 125001"
+            placeholder="ID ni kiriting"
             maxLength={10}
             style={{
               width: "100%",
@@ -238,22 +238,14 @@ export default function LoginPage() {
           ID FORMATLARI
         </p>
         {[
-          { id: "DR0001", label: "Direktor", example: "director123" },
-          { id: "DP0001", label: "Direktor o'rinbosari", example: "deputy123" },
-          { id: "AM0001", label: "Davomatchi", example: "manager123" },
-          { id: "MA0001", label: "Usta o'qituvchi", example: "master123" },
-          { id: "CU0001", label: "Kurator", example: "curator123" },
-          {
-            id: "125001",
-            label: "O'quvchi (1-25 guruh)",
-            example: "talaba123",
-          },
-          {
-            id: "224001",
-            label: "O'quvchi (2-24 guruh)",
-            example: "talaba123",
-          },
-        ].map(({ id, label, example }) => (
+          { id: "DR0001", label: "Direktor" },
+          { id: "DP0001", label: "Direktor o'rinbosari" },
+          { id: "AM0001", label: "Davomatchi" },
+          { id: "MA0001", label: "Usta o'qituvchi" },
+          { id: "KU0001", label: "Kurator" },
+          { id: "125001", label: "O'quvchi (1-25 guruh)" },
+          { id: "224001", label: "O'quvchi (2-24 guruh)" },
+        ].map(({ id, label }) => (
           <div
             key={id}
             style={{
@@ -276,22 +268,38 @@ export default function LoginPage() {
             </span>
           </div>
         ))}
-        <p
+        <div
           style={{
-            fontSize: "10px",
-            color: "var(--text-muted)",
-            marginTop: "8px",
-            textAlign: "center",
+            marginTop: "10px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "3px",
           }}>
-          O'quvchilar paroli:{" "}
-          <span
-            style={{
-              color: "var(--accent-blue-light)",
-              fontFamily: "var(--font-mono)",
-            }}>
-            talaba123
-          </span>
-        </p>
+          {[
+            { label: "Direktor:", pw: "director123" },
+            { label: "Deputy:", pw: "deputy123" },
+            { label: "Davomatchi:", pw: "manager123" },
+            { label: "Master:", pw: "master123" },
+            { label: "Kurator:", pw: "kurator123" },
+            { label: "O'quvchi:", pw: "talaba123" },
+          ].map(({ label, pw }) => (
+            <div
+              key={label}
+              style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                {label}
+              </span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "var(--accent-blue-light)",
+                  fontFamily: "var(--font-mono)",
+                }}>
+                {pw}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
