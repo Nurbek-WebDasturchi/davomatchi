@@ -129,6 +129,26 @@ router.post("/manual", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Faqat davomatchi uchun" });
     }
 
+    // ── Vaqt tekshiruvi (davomatchi ham faqat 08:30-13:20 da kirita oladi)
+    if (!isAttendanceOpen()) {
+      const t = getUzbekTime();
+      const h = t.getUTCHours();
+      const m = t.getUTCMinutes();
+      const totalMin = h * 60 + m;
+      const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
+      if (totalMin > endMin) {
+        return res.status(403).json({
+          error: "Davomat vaqti tugagan (13:20 dan keyin kiritish mumkin emas)",
+          timeError: true,
+        });
+      } else {
+        return res.status(403).json({
+          error: `Davomat vaqti 08:30 da boshlanadi. Hozirgi vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+          timeError: true,
+        });
+      }
+    }
+
     const { studentId } = req.body;
     if (!studentId) {
       return res.status(400).json({ error: "Talaba ID kerak" });
@@ -293,7 +313,7 @@ router.get("/group/:groupId", authMiddleware, async (req, res) => {
               u.first_name || ' ' || u.last_name AS full_name,
               s.student_code,
               CASE WHEN a.id IS NOT NULL THEN true ELSE false END AS is_present,
-              a.scanned_at,
+              (a.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tashkent') AS scanned_at,
               a.status
        FROM students s
        JOIN users u ON u.id = s.id
@@ -436,7 +456,7 @@ router.get("/export", authMiddleware, async (req, res) => {
               c.name         AS "Kurs",
               a.date         AS "Sana",
               a.status       AS "Holat",
-              TO_CHAR(a.scanned_at, 'HH24:MI') AS "Vaqt"
+              TO_CHAR(a.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tashkent', 'HH24:MI') AS "Vaqt"
        FROM attendance a
        JOIN students s ON s.id  = a.student_id
        JOIN users    u ON u.id  = s.id

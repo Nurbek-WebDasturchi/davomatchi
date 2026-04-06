@@ -28,7 +28,8 @@ export default function MarkAttendancePage() {
       setResult(res.data);
       setStudentId("");
     } catch (err) {
-      setError(err.response?.data?.error || "Xatolik yuz berdi");
+      const data = err.response?.data;
+      setError(data?.error || "Xatolik yuz berdi");
     } finally {
       setLoading(false);
     }
@@ -259,15 +260,31 @@ export default function MarkAttendancePage() {
             {error && (
               <div
                 style={{
-                  background: "rgba(239,68,68,0.1)",
-                  border: "1px solid rgba(239,68,68,0.3)",
+                  background:
+                    error.includes("tugagan") || error.includes("boshlanadi")
+                      ? "rgba(245,158,11,0.1)"
+                      : "rgba(239,68,68,0.1)",
+                  border: `1px solid ${
+                    error.includes("tugagan") || error.includes("boshlanadi")
+                      ? "rgba(245,158,11,0.3)"
+                      : "rgba(239,68,68,0.3)"
+                  }`,
                   borderRadius: "var(--radius-sm)",
                   padding: "10px 14px",
-                  color: "var(--accent-red)",
+                  color:
+                    error.includes("tugagan") || error.includes("boshlanadi")
+                      ? "var(--accent-amber)"
+                      : "var(--accent-red)",
                   fontSize: "13px",
                   textAlign: "center",
+                  fontWeight: 600,
                 }}>
-                ⚠️ {error}
+                {error.includes("tugagan")
+                  ? "🕐"
+                  : error.includes("boshlanadi")
+                    ? "⏰"
+                    : "⚠️"}{" "}
+                {error}
               </div>
             )}
 
