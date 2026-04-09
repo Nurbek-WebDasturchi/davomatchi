@@ -67,7 +67,7 @@ export default function LoginPage() {
       </div>
 
       <h1 style={{ fontSize: "24px", fontWeight: 900, marginBottom: "4px" }}>
-        DavomatGo davomat tizimi
+        DavomatGo tizimi
       </h1>
       <p
         style={{
@@ -220,7 +220,7 @@ export default function LoginPage() {
               Tekshirilmoqda...
             </>
           ) : (
-            "🔐 Kirish"
+            "Kirish"
           )}
         </button>
       </div>
@@ -243,10 +243,16 @@ export default function LoginPage() {
             color: "var(--text-secondary)",
             marginBottom: "6px",
           }}>
-          🚀 <strong>DavomatGo</strong> bilan endi tizim yanada osonroq
+          🚀 <strong>DavomatGo</strong> bilan endi davomat qilish yanada
+          osonroq.
         </p>
         <p style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-          © 2025 DavomatGo. Barcha huquqlar himoyalangan.
+          Dastur{" "}
+          <a href="https://t.me/@N_2984" target="_blank">
+            Akhmedov Provides
+          </a>{" "}
+          tomonidan yaratilgan. <br />© 2025 DavomatGo. Barcha huquqlar
+          himoyalangan.
         </p>
       </div>
     </div>
