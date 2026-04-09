@@ -64,7 +64,7 @@ export default function LoginPage() {
       </div>
 
       <h1 style={{ fontSize: "24px", fontWeight: 900, marginBottom: "4px" }}>
-        Davomat Tizimi
+        DavomatGo davomat tizimi
       </h1>
       <p
         style={{
@@ -217,7 +217,7 @@ export default function LoginPage() {
         </button>
       </form>
 
-      {/* ID formatlar */}
+      {/* Brending */}
       <div
         style={{
           marginTop: "32px",
@@ -226,80 +226,20 @@ export default function LoginPage() {
           background: "var(--bg-secondary)",
           border: "1px solid var(--border)",
           borderRadius: "var(--radius-lg)",
-          padding: "14px",
+          padding: "18px",
+          textAlign: "center",
         }}>
         <p
           style={{
-            fontSize: "11px",
-            color: "var(--text-muted)",
-            fontWeight: 700,
-            marginBottom: "8px",
+            fontSize: "13px",
+            color: "var(--text-secondary)",
+            marginBottom: "6px",
           }}>
-          ID FORMATLARI
+          🚀 <strong>DavomatGo</strong> bilan endi tizim yanada osonroq
         </p>
-        {[
-          { id: "DR0001", label: "Direktor" },
-          { id: "DP0001", label: "Direktor o'rinbosari" },
-          { id: "AM0001", label: "Davomatchi" },
-          { id: "MA0001", label: "Usta o'qituvchi" },
-          { id: "KU0001", label: "Kurator" },
-          { id: "125001", label: "O'quvchi (1-25 guruh)" },
-          { id: "224001", label: "O'quvchi (2-24 guruh)" },
-        ].map(({ id, label }) => (
-          <div
-            key={id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "5px 0",
-              borderBottom: "1px solid var(--border)",
-            }}>
-            <span
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "12px",
-                color: "var(--accent-blue-light)",
-              }}>
-              {id}
-            </span>
-            <span style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-              {label}
-            </span>
-          </div>
-        ))}
-        <div
-          style={{
-            marginTop: "10px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "3px",
-          }}>
-          {[
-            { label: "Direktor:", pw: "director123" },
-            { label: "Deputy:", pw: "deputy123" },
-            { label: "Davomatchi:", pw: "manager123" },
-            { label: "Master:", pw: "master123" },
-            { label: "Kurator:", pw: "kurator123" },
-            { label: "O'quvchi:", pw: "talaba123" },
-          ].map(({ label, pw }) => (
-            <div
-              key={label}
-              style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>
-                {label}
-              </span>
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "var(--accent-blue-light)",
-                  fontFamily: "var(--font-mono)",
-                }}>
-                {pw}
-              </span>
-            </div>
-          ))}
-        </div>
+        <p style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+          © 2025 DavomatGo. Barcha huquqlar himoyalangan.
+        </p>
       </div>
     </div>
   );
