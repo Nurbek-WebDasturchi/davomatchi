@@ -246,9 +246,14 @@ export default function LoginPage() {
           🚀 <strong>DavomatGo</strong> bilan endi davomat qilish yanada
           osonroq.
         </p>
-        <p style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+        <p
+          style={{
+            fontSize: "11px",
+            color: "var(--text-muted)",
+            textDecoration: "none",
+          }}>
           Dastur{" "}
-          <a href="https://t.me/@N_2984" target="_blank">
+          <a href="https://t.me/N_2984" target="_blank">
             Akhmedov Provides
           </a>{" "}
           tomonidan yaratilgan. <br />© 2025 DavomatGo. Barcha huquqlar
