@@ -9,7 +9,6 @@ const ATTENDANCE_END = { hour: 13, minute: 20 }; // 13:20
 
 function getUzbekTime() {
   const now = new Date();
-  // UTC+5
   const uzNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
   return uzNow;
 }
@@ -32,7 +31,6 @@ router.post("/scan", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "qrToken va studentId kerak" });
     }
 
-    // ── Vaqt tekshiruvi ──────────────────────────────────────
     if (!isAttendanceOpen()) {
       const t = getUzbekTime();
       const h = t.getUTCHours();
@@ -41,14 +39,12 @@ router.post("/scan", authMiddleware, async (req, res) => {
       const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
 
       if (totalMin > endMin) {
-        // 13:20 dan keyin
         return res.status(403).json({
           error:
             "Uzur, siz o'qishga kelmay turib davomat belgilay olmaysiz, hurmatli o'quvchi! 🕐",
           timeError: true,
         });
       } else {
-        // 08:30 dan oldin
         return res.status(403).json({
           error: `Davomat vaqti 08:30 da boshlanadi. Hozirgi vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ⏰`,
           timeError: true,
@@ -129,7 +125,6 @@ router.post("/manual", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Faqat davomatchi uchun" });
     }
 
-    // ── Vaqt tekshiruvi (davomatchi ham faqat 08:30-13:20 da kirita oladi)
     if (!isAttendanceOpen()) {
       const t = getUzbekTime();
       const h = t.getUTCHours();
@@ -278,7 +273,6 @@ router.get("/all-groups", authMiddleware, async (req, res) => {
 // GET /api/attendance/group/:groupId
 router.get("/group/:groupId", authMiddleware, async (req, res) => {
   try {
-    // parseInt EMAS — UUID string sifatida olamiz
     const groupId = req.params.groupId;
     const date = req.query.date || new Date().toISOString().split("T")[0];
     const user = req.user;
@@ -376,7 +370,6 @@ router.get(
   async (req, res) => {
     try {
       const today = new Date().toISOString().split("T")[0];
-      // courseId ham UUID
       const courseId = req.params.courseId;
 
       const groups = await pool.query(
@@ -400,10 +393,48 @@ router.get(
 );
 
 // GET /api/attendance/analytics
+// ─────────────────────────────────────────────────────────────────────────────
+// ASOSIY FIX: avval faqat attendance jadvalidagi studentlar sanalar edi →
+// present_count / present_count = 100%.
+// Endi har kun uchun BARCHA guruh talabalarini mustaqil subquery bilan olamiz.
+// ─────────────────────────────────────────────────────────────────────────────
 router.get("/analytics", authMiddleware, async (req, res) => {
   try {
     const period = req.query.period === "month" ? 30 : 7;
     const user = req.user;
+
+    // Teacher bo'lsa faqat o'z guruhlari, aks holda hamma guruhlar
+    let totalStudentsQuery;
+    let totalParams;
+
+    if (ROLES.TEACHER.includes(user.role)) {
+      // O'z guruhlaridagi jami talabalar soni
+      totalStudentsQuery = `
+        SELECT COUNT(DISTINCT s.id)
+        FROM students s
+        JOIN group_assignments ga ON ga.group_id = s.group_id
+        WHERE ga.user_id = $1
+      `;
+      totalParams = [user.id];
+    } else if (req.query.groupId) {
+      // Bitta guruh filtri
+      totalStudentsQuery = `
+        SELECT COUNT(DISTINCT s.id)
+        FROM students s
+        WHERE s.group_id = $1
+      `;
+      totalParams = [req.query.groupId];
+    } else {
+      // Hamma talabalar
+      totalStudentsQuery = `SELECT COUNT(DISTINCT id) FROM students`;
+      totalParams = [];
+    }
+
+    // Jami talabalar sonini bir marta olamiz
+    const totalRes = await pool.query(totalStudentsQuery, totalParams);
+    const totalStudents = parseInt(totalRes.rows[0].count) || 0;
+
+    // Har kun uchun present_count ni olamiz
     let whereExtra = "";
     const params = [period];
 
@@ -416,16 +447,25 @@ router.get("/analytics", authMiddleware, async (req, res) => {
     }
 
     const rows = await pool.query(
-      `SELECT a.date,
-              COUNT(DISTINCT a.student_id) AS present_count,
-              COUNT(DISTINCT s.id)         AS total_students
-       FROM attendance a
-       JOIN students s ON s.id = a.student_id
-       JOIN groups   g ON g.id = s.group_id
-       ${ROLES.TEACHER.includes(user.role) ? "JOIN group_assignments ga ON ga.group_id = g.id" : ""}
-       WHERE a.date >= CURRENT_DATE - ($1 || ' days')::interval
-       ${whereExtra}
-       GROUP BY a.date ORDER BY a.date`,
+      `SELECT
+         dates.day AS date,
+         COALESCE(COUNT(DISTINCT a.student_id), 0) AS present_count,
+         ${/* total_students har qatorda bir xil */ ""}
+         ${totalStudents} AS total_students
+       FROM (
+         SELECT generate_series(
+           CURRENT_DATE - ($1 || ' days')::interval,
+           CURRENT_DATE,
+           '1 day'::interval
+         )::date AS day
+       ) dates
+       LEFT JOIN attendance a ON a.date = dates.day
+       LEFT JOIN students s ON s.id = a.student_id
+       LEFT JOIN groups g ON g.id = s.group_id
+       ${ROLES.TEACHER.includes(user.role) ? "LEFT JOIN group_assignments ga ON ga.group_id = g.id" : ""}
+       ${whereExtra ? `WHERE 1=1 ${whereExtra}` : ""}
+       GROUP BY dates.day
+       ORDER BY dates.day`,
       params,
     );
 

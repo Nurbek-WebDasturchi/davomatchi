@@ -12,11 +12,18 @@ export default function NavBar() {
   const role = user.role;
   let items = [];
 
-  if (role === "director" || role === "deputy") {
+  if (role === "director") {
+    // Director: hamma 3 ta tab ko'radi
     items = [
       { path: "/", icon: "🏠", label: "Bosh sahifa" },
       { path: "/groups-list", icon: "📋", label: "Guruhlar" },
       { path: "/analytics", icon: "📊", label: "Tahlil" },
+    ];
+  } else if (role === "deputy") {
+    // Deputy: Analytics ko'rmaydi
+    items = [
+      { path: "/", icon: "🏠", label: "Bosh sahifa" },
+      { path: "/groups-list", icon: "📋", label: "Guruhlar" },
     ];
   } else if (role === "master" || role === "curator") {
     items = [{ path: "/my-groups", icon: "🏠", label: "Guruhlar" }];
@@ -36,11 +43,6 @@ export default function NavBar() {
 
   return (
     <>
-      {/* 
-        Bu spacer NavBar ning ustida turgan kontentni
-        pastga itarmaydi — NavBar content ustida turadi.
-        Spacer kontentning oxiriga qo'shiladi.
-      */}
       <div style={{ height: "80px", flexShrink: 0 }} />
 
       <nav
@@ -83,7 +85,6 @@ export default function NavBar() {
                 position: "relative",
                 transition: "color 0.2s",
               }}>
-              {/* Aktiv — yuqori chiziq */}
               {active && (
                 <span
                   style={{

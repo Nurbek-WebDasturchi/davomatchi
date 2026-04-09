@@ -8,6 +8,7 @@ export default function QRDisplayPage() {
   const navigate = useNavigate();
   const [qr, setQr] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadMsg, setDownloadMsg] = useState("");
 
   useEffect(() => {
     api
@@ -17,16 +18,53 @@ export default function QRDisplayPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!qr?.qrCode) return;
-    const a = document.createElement("a");
-    a.href = qr.qrCode;
-    a.download = `${qr.groupName}-QR.png`;
-    a.click();
+
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isTelegram = !!window.Telegram?.WebApp?.initData;
+
+    if (isIOS || isTelegram) {
+      // iOS va Telegram WebApp da <a download> ishlamaydi
+      // Rasmni yangi tabda ochamiz, foydalanuvchi o'zi saqlaydi
+      const win = window.open(qr.qrCode, "_blank");
+      if (!win) {
+        // Popup bloklangan bo'lsa
+        setDownloadMsg(
+          "Rasmni saqlash: uni bosib ushlab → 'Rasmga saqlash' ni tanlang",
+        );
+        setTimeout(() => setDownloadMsg(""), 4000);
+      } else {
+        setDownloadMsg("Ochilgan sahifada rasmni bosib ushlab saqlang 👆");
+        setTimeout(() => setDownloadMsg(""), 4000);
+      }
+      return;
+    }
+
+    // Android / Desktop — oddiy download
+    try {
+      const response = await fetch(qr.qrCode);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${qr.groupName || "QR"}-kod.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      // Fallback: to'g'ridan-to'g'ri href
+      const a = document.createElement("a");
+      a.href = qr.qrCode;
+      a.download = `${qr.groupName || "QR"}-kod.png`;
+      a.click();
+    }
   };
 
   const handleShare = async () => {
-    if (!navigator.share || !qr?.qrCode) return;
+    if (!qr?.qrCode) return;
     try {
       const blob = await (await fetch(qr.qrCode)).blob();
       const file = new File([blob], `${qr.groupName}-QR.png`, {
@@ -134,7 +172,7 @@ export default function QRDisplayPage() {
               fontSize: "13px",
               marginTop: "4px",
             }}>
-            Talabalar bu kodni skanerlaydi
+            Talabalar bu kodni Telegram bot orqali skanerlaydi
           </p>
         </div>
 
@@ -166,6 +204,24 @@ export default function QRDisplayPage() {
             {qr?.qrToken}
           </p>
         </div>
+
+        {/* Download xabari */}
+        {downloadMsg && (
+          <div
+            style={{
+              width: "100%",
+              background: "rgba(245,158,11,0.1)",
+              border: "1px solid rgba(245,158,11,0.3)",
+              borderRadius: "var(--radius-md)",
+              padding: "12px 14px",
+              color: "var(--accent-amber)",
+              fontSize: "13px",
+              fontWeight: 600,
+              textAlign: "center",
+            }}>
+            📱 {downloadMsg}
+          </div>
+        )}
 
         {/* Tugmalar */}
         <div style={{ display: "flex", gap: "10px", width: "100%" }}>

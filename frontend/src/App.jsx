@@ -41,7 +41,6 @@ function AppRoutes() {
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
-      // expand faqat bir marta, allaqachon expanded bo'lmasa
       if (!tg.isExpanded) {
         tg.expand();
       }
@@ -71,10 +70,12 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+
+      {/* Analytics — FAQAT director (deputy emas!) */}
       <Route
         path="/analytics"
         element={
-          <ProtectedRoute roles={["director", "deputy"]}>
+          <ProtectedRoute roles={["director"]}>
             <AnalyticsPage />
           </ProtectedRoute>
         }

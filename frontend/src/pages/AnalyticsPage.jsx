@@ -4,6 +4,7 @@ import {
   Area,
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -11,16 +12,62 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import { exportToExcel } from "../utils/export";
 import NavBar from "../components/NavBar";
 
+// Foizga qarab rang qaytaradi: >=70 yashil, 50-70 sariq, <50 qizil
+const getBarColor = (foiz) => {
+  if (foiz >= 70) return "#22c55e";
+  if (foiz >= 50) return "#eab308";
+  return "#ef4444";
+};
+
 export default function AnalyticsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [period, setPeriod] = useState("week");
   const [analytics, setAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+
+  // Deputy ko'ra olmasin — sahifaga kirgan bo'lsa qaytarib yuboramiz
+  if (user?.role === "deputy") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "var(--bg-primary)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "24px",
+          textAlign: "center",
+          gap: "16px",
+        }}>
+        <p style={{ fontSize: "48px" }}>🚫</p>
+        <h2 style={{ fontSize: "18px", fontWeight: 900 }}>Ruxsat yo'q</h2>
+        <p style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
+          Bu sahifani ko'rish huquqingiz mavjud emas.
+        </p>
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            padding: "11px 24px",
+            background: "var(--accent-blue)",
+            color: "#fff",
+            borderRadius: "var(--radius-md)",
+            fontSize: "13px",
+            fontWeight: 700,
+          }}>
+          ← Bosh sahifaga qaytish
+        </button>
+        <NavBar />
+      </div>
+    );
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -76,7 +123,6 @@ export default function AnalyticsPage() {
     null,
   );
 
-  // Tooltip uchun stil
   const tooltipStyle = {
     contentStyle: {
       background: "var(--bg-secondary)",
@@ -111,7 +157,7 @@ export default function AnalyticsPage() {
             Davomat statistikasi
           </p>
         </div>
-        {user.role === "admin" && (
+        {user.role === "director" && (
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -206,7 +252,7 @@ export default function AnalyticsPage() {
                 {
                   label: "O'rtacha",
                   value: `${avg}%`,
-                  color: "var(--accent-blue)",
+                  color: getBarColor(avg),
                 },
                 {
                   label: "Eng ko'p",
@@ -252,6 +298,38 @@ export default function AnalyticsPage() {
                       {sub}
                     </p>
                   )}
+                </div>
+              ))}
+            </div>
+
+            {/* Rang izoh */}
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "center",
+                flexWrap: "wrap",
+              }}>
+              {[
+                { color: "#22c55e", label: "≥70% (yaxshi)" },
+                { color: "#eab308", label: "50–70% (o'rta)" },
+                { color: "#ef4444", label: "<50% (past)" },
+              ].map(({ color, label }) => (
+                <div
+                  key={label}
+                  style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                  <div
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "2px",
+                      background: color,
+                    }}
+                  />
+                  <span
+                    style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                    {label}
+                  </span>
                 </div>
               ))}
             </div>
@@ -314,7 +392,7 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
             </div>
 
-            {/* Foiz grafigi */}
+            {/* Foiz grafigi — har bir bar rangli */}
             <div
               style={{
                 background: "var(--bg-card)",
@@ -355,7 +433,14 @@ export default function AnalyticsPage() {
                     {...tooltipStyle}
                     formatter={(v) => [`${v}%`, "Davomat"]}
                   />
-                  <Bar dataKey="foiz" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="foiz" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={getBarColor(entry.foiz)}
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -378,12 +463,7 @@ export default function AnalyticsPage() {
                 </p>
               </div>
               {[...chartData].reverse().map((row, i) => {
-                const color =
-                  row.foiz >= 80
-                    ? "var(--accent-green)"
-                    : row.foiz >= 60
-                      ? "var(--accent-amber)"
-                      : "var(--accent-red)";
+                const color = getBarColor(row.foiz);
                 return (
                   <div
                     key={i}
