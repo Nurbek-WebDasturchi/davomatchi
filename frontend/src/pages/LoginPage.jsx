@@ -11,8 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [showPw, setShowPw] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!userId.trim() || !password.trim()) {
       setError("ID va parolni kiriting");
       return;
@@ -33,6 +32,10 @@ export default function LoginPage() {
       setError(result.error);
     }
     setLoading(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") handleSubmit();
   };
 
   return (
@@ -76,8 +79,7 @@ export default function LoginPage() {
       </p>
 
       {/* Form */}
-      <form
-        onSubmit={handleSubmit}
+      <div
         style={{
           width: "100%",
           maxWidth: "340px",
@@ -101,6 +103,7 @@ export default function LoginPage() {
             type="text"
             value={userId}
             onChange={(e) => setUserId(e.target.value.toUpperCase())}
+            onKeyDown={handleKeyDown}
             placeholder="ID ni kiriting"
             maxLength={10}
             style={{
@@ -113,6 +116,7 @@ export default function LoginPage() {
               fontSize: "16px",
               fontFamily: "var(--font-mono)",
               letterSpacing: "0.1em",
+              boxSizing: "border-box",
             }}
           />
         </div>
@@ -134,6 +138,7 @@ export default function LoginPage() {
               type={showPw ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="••••••••"
               style={{
                 width: "100%",
@@ -143,6 +148,7 @@ export default function LoginPage() {
                 borderRadius: "var(--radius-md)",
                 color: "var(--text-primary)",
                 fontSize: "15px",
+                boxSizing: "border-box",
               }}
             />
             <button
@@ -182,7 +188,8 @@ export default function LoginPage() {
 
         {/* Kirish tugmasi */}
         <button
-          type="submit"
+          type="button"
+          onClick={handleSubmit}
           disabled={loading}
           style={{
             width: "100%",
@@ -196,6 +203,7 @@ export default function LoginPage() {
             alignItems: "center",
             justifyContent: "center",
             gap: "8px",
+            cursor: loading ? "not-allowed" : "pointer",
           }}>
           {loading ? (
             <>
@@ -215,7 +223,7 @@ export default function LoginPage() {
             "🔐 Kirish"
           )}
         </button>
-      </form>
+      </div>
 
       {/* Brending */}
       <div
