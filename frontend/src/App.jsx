@@ -41,7 +41,10 @@ function AppRoutes() {
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
-      tg.expand();
+      // expand faqat bir marta, allaqachon expanded bo'lmasa
+      if (!tg.isExpanded) {
+        tg.expand();
+      }
     }
   }, []);
 
