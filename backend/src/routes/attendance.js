@@ -7,10 +7,22 @@ const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 const ATTENDANCE_START = { hour: 8, minute: 30 }; // 08:30
 const ATTENDANCE_END = { hour: 13, minute: 20 }; // 13:20
 
+// O'zbekiston vaqtini qaytaradi (UTC+5)
+// .getUTCHours() bilan ishlatiladi — chunki biz UTC ga +5 qo'shganmiz
 function getUzbekTime() {
   const now = new Date();
-  const uzNow = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-  return uzNow;
+  return new Date(now.getTime() + 5 * 60 * 60 * 1000);
+}
+
+// O'zbekiston sanasini "YYYY-MM-DD" formatida qaytaradi
+// new Date().toISOString() UTC sana qaytaradi — O'zbekistonda kech tun
+// bo'lsa sana bir kun orqada chiqishi mumkin. Shu sababli bu funksiya ishlatiladi.
+function getTodayUzbekDate() {
+  const t = getUzbekTime();
+  const y = t.getUTCFullYear();
+  const m = String(t.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(t.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function isAttendanceOpen() {
@@ -20,6 +32,12 @@ function isAttendanceOpen() {
   const totalMin = h * 60 + m;
   const startMin = ATTENDANCE_START.hour * 60 + ATTENDANCE_START.minute;
   const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
+
+  // Debug log — Render logs da ko'rish uchun
+  console.log(
+    `[isAttendanceOpen] UZ vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} | totalMin=${totalMin} | open=${totalMin >= startMin && totalMin <= endMin}`,
+  );
+
   return totalMin >= startMin && totalMin <= endMin;
 }
 
@@ -77,7 +95,7 @@ router.post("/scan", authMiddleware, async (req, res) => {
         .json({ error: "Bu QR kod sizning guruhingizga tegishli emas" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayUzbekDate();
     const existing = await pool.query(
       "SELECT id, scanned_at FROM attendance WHERE student_id = $1 AND date = $2",
       [studentId, today],
@@ -165,7 +183,7 @@ router.post("/manual", authMiddleware, async (req, res) => {
     }
     const student = studentRes.rows[0];
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayUzbekDate();
     const existing = await pool.query(
       "SELECT id, scanned_at FROM attendance WHERE student_id = $1 AND date = $2",
       [student.id, today],
@@ -211,7 +229,7 @@ router.post("/manual", authMiddleware, async (req, res) => {
 // GET /api/attendance/today
 router.get("/today", authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayUzbekDate();
 
     const byCourse = await pool.query(
       `SELECT c.id AS course_id, c.name AS course_name, c.year,
@@ -248,7 +266,7 @@ router.get("/all-groups", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayUzbekDate();
 
     const groups = await pool.query(
       `SELECT g.id, g.name, c.name AS course_name,
@@ -274,7 +292,7 @@ router.get("/all-groups", authMiddleware, async (req, res) => {
 router.get("/group/:groupId", authMiddleware, async (req, res) => {
   try {
     const groupId = req.params.groupId;
-    const date = req.query.date || new Date().toISOString().split("T")[0];
+    const date = req.query.date || getTodayUzbekDate();
     const user = req.user;
 
     if (ROLES.TEACHER.includes(user.role)) {
@@ -339,7 +357,7 @@ router.get("/my-groups", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayUzbekDate();
 
     const groups = await pool.query(
       `SELECT g.id, g.name, c.name AS course_name,
@@ -369,7 +387,7 @@ router.get(
   requireAdmin,
   async (req, res) => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getTodayUzbekDate();
       const courseId = req.params.courseId;
 
       const groups = await pool.query(
@@ -484,10 +502,14 @@ router.get("/export", authMiddleware, async (req, res) => {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
 
-    const end = req.query.endDate || new Date().toISOString().split("T")[0];
+    const end = req.query.endDate || getTodayUzbekDate();
     const start =
       req.query.startDate ||
-      new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+      (() => {
+        const t = getUzbekTime();
+        t.setUTCDate(t.getUTCDate() - 7);
+        return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+      })();
 
     const result = await pool.query(
       `SELECT u.last_name || ' ' || u.first_name AS "Talaba ismi",
