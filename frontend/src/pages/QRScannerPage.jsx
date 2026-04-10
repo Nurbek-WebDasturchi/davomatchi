@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BrowserQRCodeReader } from "@zxing/library";
+import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 import NavBar from "../components/NavBar";
@@ -8,8 +8,7 @@ import NavBar from "../components/NavBar";
 export default function QRScannerPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const videoRef = useRef(null);
-  const readerRef = useRef(null);
+  const scannerRef = useRef(null);
   const lastScan = useRef(null);
 
   const [scanning, setScanning] = useState(false);
@@ -19,66 +18,110 @@ export default function QRScannerPage() {
 
   useEffect(() => {
     startScanner();
-    return () => stopScanner();
+    return () => {
+      stopScanner();
+    };
   }, []);
 
   const startScanner = async () => {
     setError(null);
+
+    // Avvalgi instanceni tozalaymiz
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch {}
+      try {
+        scannerRef.current.clear();
+      } catch {}
+      scannerRef.current = null;
+    }
+
     try {
-      const reader = new BrowserQRCodeReader();
-      readerRef.current = reader;
+      const html5QrCode = new Html5Qrcode("qr-reader-container");
+      scannerRef.current = html5QrCode;
 
-      const devices = await reader.listVideoInputDevices();
-      if (devices.length === 0) {
-        setError("Kamera topilmadi");
-        return;
-      }
-
-      // Orqa kamerani afzal ko'rish
-      const backCam =
-        devices.find((d) => /back|rear|environment/i.test(d.label)) ||
-        devices[devices.length - 1];
-
-      setScanning(true);
-
-      reader.decodeFromVideoDevice(
-        backCam.deviceId,
-        videoRef.current,
-        async (res, err) => {
-          if (!res) return;
-
-          // 3 soniyada bir marta
+      await html5QrCode.start(
+        { facingMode: "environment" }, // Android orqa kamera uchun muhim
+        {
+          fps: 10,
+          qrbox: { width: 220, height: 220 },
+          aspectRatio: 1.0,
+          disableFlip: false,
+        },
+        async (decodedText) => {
+          // 3 soniyada bir marta ishlasin
           const now = Date.now();
           if (lastScan.current && now - lastScan.current < 3000) return;
           lastScan.current = now;
 
           try {
-            const data = JSON.parse(res.getText());
+            const data = JSON.parse(decodedText);
             if (data.qrToken) {
               await processAttendance(data.qrToken);
             }
           } catch {
-            // JSON emas
+            // JSON emas — ignore
           }
         },
+        () => {
+          // Har frame da chaqiriladi agar QR topilmasa — ignore
+        },
       );
+
+      setScanning(true);
     } catch (err) {
-      setError("Kameraga ruxsat berilmadi. Brauzer sozlamalarini tekshiring.");
+      console.error("Scanner xatosi:", err);
+      const errStr = String(err?.message || err);
+
+      if (
+        errStr.includes("NotAllowedError") ||
+        errStr.includes("Permission") ||
+        errStr.includes("permission")
+      ) {
+        setError(
+          "Kameraga ruxsat berilmadi. Brauzer sozlamalarida kamera ruxsatini yoqing.",
+        );
+      } else if (
+        errStr.includes("NotFound") ||
+        errStr.includes("no camera") ||
+        errStr.includes("Requested device not found")
+      ) {
+        setError(
+          "Kamera topilmadi. Qurilmangizda kamera borligini tekshiring.",
+        );
+      } else if (errStr.includes("NotReadableError")) {
+        setError(
+          "Kamera boshqa ilova tomonidan ishlatilmoqda. Boshqa ilovalarni yoping.",
+        );
+      } else {
+        setError(
+          "Kamerani ochib bo'lmadi. Sahifani yangilang va qayta urinib ko'ring.",
+        );
+      }
       setScanning(false);
     }
   };
 
-  const stopScanner = () => {
-    readerRef.current?.reset();
-    readerRef.current = null;
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch {}
+      try {
+        scannerRef.current.clear();
+      } catch {}
+      scannerRef.current = null;
+    }
     setScanning(false);
   };
 
   const processAttendance = async (qrToken) => {
+    // Natija ko'rsatish oldidan scannerni to'xtatamiz
+    await stopScanner();
     setLoading(true);
     setResult(null);
     try {
-      // Student o'zining ID sini avtomatik yuboradi
       const res = await api.post("/attendance/scan", {
         qrToken,
         studentId: user.id,
@@ -99,10 +142,11 @@ export default function QRScannerPage() {
     }
   };
 
-  const reset = () => {
+  const reset = async () => {
     setResult(null);
     setError(null);
     lastScan.current = null;
+    await startScanner();
   };
 
   return (
@@ -236,6 +280,8 @@ export default function QRScannerPage() {
                 borderRadius: "var(--radius-lg)",
                 fontSize: "14px",
                 fontWeight: 800,
+                border: "none",
+                cursor: "pointer",
               }}>
               📷 Yana skanerlash
             </button>
@@ -244,7 +290,7 @@ export default function QRScannerPage() {
           /* Skaner ekrani */
           <div
             style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            {/* Kamera */}
+            {/* Kamera container — html5-qrcode shu div ichiga render qiladi */}
             <div
               style={{
                 position: "relative",
@@ -254,19 +300,25 @@ export default function QRScannerPage() {
                 aspectRatio: "1",
                 border: "1px solid var(--border)",
               }}>
-              <video
-                ref={videoRef}
+              {/* html5-qrcode shu id ga render qiladi */}
+              <div
+                id="qr-reader-container"
                 style={{
                   width: "100%",
                   height: "100%",
-                  objectFit: "cover",
-                  display: "block",
+                  position: "absolute",
+                  inset: 0,
                 }}
               />
 
-              {/* Skaner animatsiyasi */}
-              {scanning && !loading && (
-                <div style={{ position: "absolute", inset: 0 }}>
+              {/* Skaner burchak chiziqlari — faqat scanning va xato yo'q paytda */}
+              {scanning && !loading && !error && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                  }}>
                   {[
                     {
                       top: "18%",
@@ -319,7 +371,7 @@ export default function QRScannerPage() {
                 </div>
               )}
 
-              {/* Xato */}
+              {/* Xato overlay */}
               {error && (
                 <div
                   style={{
@@ -332,6 +384,7 @@ export default function QRScannerPage() {
                     justifyContent: "center",
                     padding: "20px",
                     textAlign: "center",
+                    zIndex: 10,
                   }}>
                   <p style={{ fontSize: "36px", marginBottom: "10px" }}>📷</p>
                   <p
@@ -352,7 +405,7 @@ export default function QRScannerPage() {
                 </div>
               )}
 
-              {/* Yuklanmoqda */}
+              {/* Yuklanmoqda overlay */}
               {loading && (
                 <div
                   style={{
@@ -362,6 +415,7 @@ export default function QRScannerPage() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    zIndex: 10,
                   }}>
                   <div
                     style={{
@@ -377,7 +431,7 @@ export default function QRScannerPage() {
               )}
             </div>
 
-            {/* Holat matni */}
+            {/* Holat matni / tugma */}
             {scanning && !loading ? (
               <p
                 style={{
@@ -388,7 +442,7 @@ export default function QRScannerPage() {
                 }}>
                 📷 Guruh QR kodini kameraga tutib turing...
               </p>
-            ) : !error ? (
+            ) : !error && !loading ? (
               <button
                 onClick={startScanner}
                 style={{
@@ -399,10 +453,12 @@ export default function QRScannerPage() {
                   borderRadius: "var(--radius-lg)",
                   fontSize: "14px",
                   fontWeight: 800,
+                  border: "none",
+                  cursor: "pointer",
                 }}>
                 ▶️ Kamerani yoqish
               </button>
-            ) : (
+            ) : error ? (
               <button
                 onClick={startScanner}
                 style={{
@@ -413,10 +469,12 @@ export default function QRScannerPage() {
                   borderRadius: "var(--radius-lg)",
                   fontSize: "14px",
                   fontWeight: 800,
+                  border: "none",
+                  cursor: "pointer",
                 }}>
                 🔄 Qayta urinish
               </button>
-            )}
+            ) : null}
 
             {/* Ko'rsatmalar */}
             <div
