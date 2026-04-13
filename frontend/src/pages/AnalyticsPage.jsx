@@ -14,7 +14,6 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
-import { exportToExcel } from "../utils/export";
 import NavBar from "../components/NavBar";
 
 // Foizga qarab rang qaytaradi: >=70 yashil, 50-70 sariq, <50 qizil
@@ -86,12 +85,51 @@ export default function AnalyticsPage() {
       const start = new Date(Date.now() - days * 86400000)
         .toISOString()
         .split("T")[0];
-      const res = await api.get(
-        `/attendance/export?startDate=${start}&endDate=${end}`,
+
+      // Token olish (api instance dan)
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+
+      // Backenddan to'g'ridan-to'g'ri Excel fayl yuklab olamiz
+      // Bu usul Android, iOS va Telegram WebApp da ham ishlaydi
+      const response = await fetch(
+        `${api.defaults.baseURL}/attendance/export?startDate=${start}&endDate=${end}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
       );
-      exportToExcel(res.data.data, `davomat_${period}`);
+
+      if (!response.ok) {
+        throw new Error("Export xatosi");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = `davomat_${period}_${end}.xlsx`;
+
+      // iOS / Telegram uchun alohida yechim
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isTelegram = !!window.Telegram?.WebApp?.initData;
+
+      if (isIOS || isTelegram) {
+        // iOS va Telegram da <a download> ishlamaydi — yangi tabda ochamiz
+        window.open(url, "_blank");
+      } else {
+        // Android va Desktop
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch {
-      alert("Export xatosi");
+      alert("Export xatosi. Qayta urinib ko'ring.");
     } finally {
       setExporting(false);
     }

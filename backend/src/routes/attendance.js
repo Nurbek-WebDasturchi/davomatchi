@@ -516,7 +516,7 @@ router.get("/export", authMiddleware, async (req, res) => {
               s.student_code AS "Talaba kodi",
               g.name         AS "Guruh",
               c.name         AS "Kurs",
-              a.date         AS "Sana",
+              TO_CHAR(a.date, 'YYYY-MM-DD') AS "Sana",
               a.status       AS "Holat",
               TO_CHAR(a.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tashkent', 'HH24:MI') AS "Vaqt"
        FROM attendance a
@@ -529,7 +529,56 @@ router.get("/export", authMiddleware, async (req, res) => {
       [start, end],
     );
 
-    res.json({ data: result.rows, count: result.rows.length });
+    // ExcelJS bilan to'g'ridan-to'g'ri Excel fayl yaratib yuboramiz
+    // Bu mobil qurilmalarda (Android, iOS, Telegram) ham ishlaydi
+    const ExcelJS = require("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Davomat");
+
+    // Ustun sarlavhalari
+    const columns = [
+      "Talaba ismi",
+      "Talaba kodi",
+      "Guruh",
+      "Kurs",
+      "Sana",
+      "Holat",
+      "Vaqt",
+    ];
+    sheet.addRow(columns);
+
+    // Sarlavha qatorini stillashtirish
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1E3A5F" },
+    };
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+
+    // Ustun kengliklari
+    sheet.columns = columns.map((header) => ({
+      header,
+      key: header,
+      width: header === "Talaba ismi" ? 30 : 16,
+    }));
+
+    // Ma'lumotlar
+    result.rows.forEach((row) => {
+      sheet.addRow(columns.map((col) => row[col] ?? ""));
+    });
+
+    // Javob headerlarini sozlaymiz
+    const filename = `davomat_${start}_${end}.xlsx`;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
     console.error("Export xatosi:", err.message);
     res.status(500).json({ error: "Server xatosi" });
