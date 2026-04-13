@@ -18,50 +18,50 @@ export default function QRDisplayPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleDownload = async () => {
-    if (!qr?.qrCode) return;
+  // const handleDownload = async () => {
+  //   if (!qr?.qrCode) return;
 
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const isTelegram = !!window.Telegram?.WebApp?.initData;
+  //   const isIOS =
+  //     /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  //   const isTelegram = !!window.Telegram?.WebApp?.initData;
 
-    if (isIOS || isTelegram) {
-      // iOS va Telegram WebApp da <a download> ishlamaydi
-      // Rasmni yangi tabda ochamiz, foydalanuvchi o'zi saqlaydi
-      const win = window.open(qr.qrCode, "_blank");
-      if (!win) {
-        // Popup bloklangan bo'lsa
-        setDownloadMsg(
-          "Rasmni saqlash: uni bosib ushlab → 'Rasmga saqlash' ni tanlang",
-        );
-        setTimeout(() => setDownloadMsg(""), 4000);
-      } else {
-        setDownloadMsg("Ochilgan sahifada rasmni bosib ushlab saqlang 👆");
-        setTimeout(() => setDownloadMsg(""), 4000);
-      }
-      return;
-    }
+  //   if (isIOS || isTelegram) {
+  //     // iOS va Telegram WebApp da <a download> ishlamaydi
+  //     // Rasmni yangi tabda ochamiz, foydalanuvchi o'zi saqlaydi
+  //     const win = window.open(qr.qrCode, "_blank");
+  //     if (!win) {
+  //       // Popup bloklangan bo'lsa
+  //       setDownloadMsg(
+  //         "Rasmni saqlash: uni bosib ushlab → 'Rasmga saqlash' ni tanlang",
+  //       );
+  //       setTimeout(() => setDownloadMsg(""), 4000);
+  //     } else {
+  //       setDownloadMsg("Ochilgan sahifada rasmni bosib ushlab saqlang 👆");
+  //       setTimeout(() => setDownloadMsg(""), 4000);
+  //     }
+  //     return;
+  //   }
 
-    // Android / Desktop — oddiy download
-    try {
-      const response = await fetch(qr.qrCode);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${qr.groupName || "QR"}-kod.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch {
-      // Fallback: to'g'ridan-to'g'ri href
-      const a = document.createElement("a");
-      a.href = qr.qrCode;
-      a.download = `${qr.groupName || "QR"}-kod.png`;
-      a.click();
-    }
-  };
+  //   // Android / Desktop — oddiy download
+  //   try {
+  //     const response = await fetch(qr.qrCode);
+  //     const blob = await response.blob();
+  //     const url = URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = `${qr.groupName || "QR"}-kod.png`;
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     document.body.removeChild(a);
+  //     setTimeout(() => URL.revokeObjectURL(url), 5000);
+  //   } catch {
+  //     // Fallback: to'g'ridan-to'g'ri href
+  //     const a = document.createElement("a");
+  //     a.href = qr.qrCode;
+  //     a.download = `${qr.groupName || "QR"}-kod.png`;
+  //     a.click();
+  //   }
+  // };
 
   const handleShare = async () => {
     if (!qr?.qrCode) return;
@@ -225,7 +225,7 @@ export default function QRDisplayPage() {
 
         {/* Tugmalar */}
         <div style={{ display: "flex", gap: "10px", width: "100%" }}>
-          <button
+          {/* <button
             onClick={handleDownload}
             style={{
               flex: 1,
@@ -238,7 +238,7 @@ export default function QRDisplayPage() {
               fontWeight: 800,
             }}>
             ⬇️ Yuklab olish
-          </button>
+          </button> */}
           {typeof navigator.share !== "undefined" && (
             <button
               onClick={handleShare}
