@@ -62,14 +62,6 @@ export default function GroupDetailPage() {
     }
   };
 
-  const handleDownloadQr = () => {
-    if (!qr?.qrCode) return;
-    const a = document.createElement("a");
-    a.href = qr.qrCode;
-    a.download = `${qr.groupName}-QR.png`;
-    a.click();
-  };
-
   const getFullName = (s) => s?.full_name || s?.name || "Noma'lum";
 
   // O'zbekiston vaqti (UTC+5)
@@ -335,20 +327,6 @@ export default function GroupDetailPage() {
                   }}>
                   Talabalar bu kodni Telegram bot orqali skanerlaydi
                 </p>
-                <button
-                  onClick={handleDownloadQr}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    background: "rgba(168,85,247,0.12)",
-                    border: "1px solid rgba(168,85,247,0.3)",
-                    borderRadius: "var(--radius-md)",
-                    color: "#a855f7",
-                    fontSize: "12px",
-                    fontWeight: 800,
-                  }}>
-                  ⬇️ Yuklab olish
-                </button>
                 <button
                   onClick={() => setShowQr(false)}
                   style={{
