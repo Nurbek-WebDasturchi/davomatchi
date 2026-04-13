@@ -332,7 +332,7 @@ export default function GroupDetailPage() {
                   style={{
                     width: "100%",
                     padding: "8px",
-                    background: "transparent",
+                    background: "red",
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-md)",
                     color: "var(--text-muted)",
