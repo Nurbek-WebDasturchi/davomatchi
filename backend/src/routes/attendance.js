@@ -495,7 +495,17 @@ router.get("/analytics", authMiddleware, async (req, res) => {
 });
 
 // GET /api/attendance/export
-router.get("/export", authMiddleware, async (req, res) => {
+// Mobil qurilmalar (Android/iOS/Telegram) uchun:
+// token query param orqali ham auth qabul qilinadi
+// Chunki window.location.href da Authorization header yuborib bo'lmaydi
+const tokenFromQuery = (req, res, next) => {
+  if (!req.headers.authorization && req.query.token) {
+    req.headers.authorization = `Bearer ${req.query.token}`;
+  }
+  next();
+};
+
+router.get("/export", tokenFromQuery, authMiddleware, async (req, res) => {
   try {
     const allowed = ["director", "deputy", "attendance_manager"];
     if (!allowed.includes(req.user.role)) {
@@ -530,52 +540,42 @@ router.get("/export", authMiddleware, async (req, res) => {
     );
 
     // ExcelJS bilan to'g'ridan-to'g'ri Excel fayl yaratib yuboramiz
-    // Bu mobil qurilmalarda (Android, iOS, Telegram) ham ishlaydi
     const ExcelJS = require("exceljs");
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Davomat");
 
-    // Ustun sarlavhalari
     const columns = [
-      "Talaba ismi",
-      "Talaba kodi",
-      "Guruh",
-      "Kurs",
-      "Sana",
-      "Holat",
-      "Vaqt",
+      { header: "Talaba ismi", key: "Talaba ismi", width: 30 },
+      { header: "Talaba kodi", key: "Talaba kodi", width: 16 },
+      { header: "Guruh", key: "Guruh", width: 16 },
+      { header: "Kurs", key: "Kurs", width: 16 },
+      { header: "Sana", key: "Sana", width: 14 },
+      { header: "Holat", key: "Holat", width: 12 },
+      { header: "Vaqt", key: "Vaqt", width: 10 },
     ];
-    sheet.addRow(columns);
+    sheet.columns = columns;
 
     // Sarlavha qatorini stillashtirish
     const headerRow = sheet.getRow(1);
-    headerRow.font = { bold: true };
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
     headerRow.fill = {
       type: "pattern",
       pattern: "solid",
       fgColor: { argb: "FF1E3A5F" },
     };
-    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
-
-    // Ustun kengliklari
-    sheet.columns = columns.map((header) => ({
-      header,
-      key: header,
-      width: header === "Talaba ismi" ? 30 : 16,
-    }));
 
     // Ma'lumotlar
     result.rows.forEach((row) => {
-      sheet.addRow(columns.map((col) => row[col] ?? ""));
+      sheet.addRow(columns.map((col) => row[col.key] ?? ""));
     });
 
-    // Javob headerlarini sozlaymiz
     const filename = `davomat_${start}_${end}.xlsx`;
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 
     await workbook.xlsx.write(res);
     res.end();

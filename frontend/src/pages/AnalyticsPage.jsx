@@ -29,7 +29,6 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState("week");
   const [analytics, setAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
 
   // Deputy ko'ra olmasin — sahifaga kirgan bo'lsa qaytarib yuboramiz
   if (user?.role === "deputy") {
@@ -77,62 +76,17 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, [period]);
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const days = period === "month" ? 30 : 7;
-      const end = new Date().toISOString().split("T")[0];
-      const start = new Date(Date.now() - days * 86400000)
-        .toISOString()
-        .split("T")[0];
-
-      // Token olish (api instance dan)
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token") || "";
-
-      // Backenddan to'g'ridan-to'g'ri Excel fayl yuklab olamiz
-      // Bu usul Android, iOS va Telegram WebApp da ham ishlaydi
-      const response = await fetch(
-        `${api.defaults.baseURL}/attendance/export?startDate=${start}&endDate=${end}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Export xatosi");
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const filename = `davomat_${period}_${end}.xlsx`;
-
-      // iOS / Telegram uchun alohida yechim
-      const isIOS =
-        /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      const isTelegram = !!window.Telegram?.WebApp?.initData;
-
-      if (isIOS || isTelegram) {
-        // iOS va Telegram da <a download> ishlamaydi — yangi tabda ochamiz
-        window.open(url, "_blank");
-      } else {
-        // Android va Desktop
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } catch {
-      alert("Export xatosi. Qayta urinib ko'ring.");
-    } finally {
-      setExporting(false);
-    }
+  const handleExport = () => {
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+    const baseURL = api.defaults.baseURL || "";
+    const days = period === "month" ? 30 : 7;
+    const end = new Date().toISOString().split("T")[0];
+    const start = new Date(Date.now() - days * 86400000)
+      .toISOString()
+      .split("T")[0];
+    const url = `${baseURL}/attendance/export?startDate=${start}&endDate=${end}&token=${encodeURIComponent(token)}`;
+    window.location.href = url;
   };
 
   // Grafik uchun ma'lumot
@@ -198,7 +152,6 @@ export default function AnalyticsPage() {
         {user.role === "director" && (
           <button
             onClick={handleExport}
-            disabled={exporting}
             style={{
               background: "rgba(34,197,94,0.12)",
               border: "1px solid rgba(34,197,94,0.3)",
@@ -207,9 +160,8 @@ export default function AnalyticsPage() {
               padding: "7px 12px",
               fontSize: "11px",
               fontWeight: 700,
-              opacity: exporting ? 0.6 : 1,
             }}>
-            {exporting ? "..." : "📥 Excel"}
+            📥 Excel
           </button>
         )}
       </div>

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
-import { exportToExcel } from "../utils/export";
 import NavBar from "../components/NavBar";
 import StatCard from "../components/StatCard";
 
@@ -34,13 +33,16 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleExport = async () => {
-    try {
-      const res = await api.get("/attendance/export");
-      exportToExcel(res.data.data, "davomat");
-    } catch {
-      alert("Export xatosi");
-    }
+  const handleExport = () => {
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+    const baseURL = api.defaults.baseURL || "";
+    const today = new Date().toISOString().split("T")[0];
+    const weekAgo = new Date(Date.now() - 7 * 86400000)
+      .toISOString()
+      .split("T")[0];
+    const url = `${baseURL}/attendance/export?startDate=${weekAgo}&endDate=${today}&token=${encodeURIComponent(token)}`;
+    window.location.href = url;
   };
 
   if (loading)
