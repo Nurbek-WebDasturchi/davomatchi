@@ -335,7 +335,7 @@ export default function GroupDetailPage() {
                     background: "red",
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius-md)",
-                    color: "var(--text-muted)",
+                    color: "white",
                     fontSize: "12px",
                   }}>
                   Yopish
