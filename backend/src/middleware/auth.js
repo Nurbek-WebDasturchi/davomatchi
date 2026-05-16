@@ -1,39 +1,39 @@
-const jwt = require('jsonwebtoken');
-const pool = require('../db/pool');
+const jwt = require("jsonwebtoken");
+const pool = require("../db/pool");
 
 // Rol guruhlari
 const ROLES = {
-  ADMIN:    ['director', 'deputy'],
-  TEACHER:  ['master', 'curator'],
-  MANAGER:  ['attendance_manager'],
-  STUDENT:  ['student'],
+  ADMIN: ["director", "deputy"],
+  TEACHER: ["master", "curator"],
+  MANAGER: ["attendance_manager"],
+  STUDENT: ["student"],
 };
 
 // Token tekshiruvchi
 async function authMiddleware(req, res, next) {
   try {
     const header = req.headers.authorization;
-    if (!header || !header.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Token topilmadi' });
+    if (!header || !header.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Token topilmadi" });
     }
 
-    const token = header.split(' ')[1];
+    const token = header.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const result = await pool.query(
-      'SELECT id, role, first_name, last_name FROM users WHERE id = $1',
-      [decoded.userId]
+      "SELECT id, role, first_name, last_name FROM users WHERE id = $1",
+      [decoded.userId],
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Foydalanuvchi topilmadi' });
+      return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
     }
 
     req.user = result.rows[0];
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token muddati tugagan' });
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ error: "Token muddati tugagan" });
     }
     return res.status(401).json({ error: "Noto'g'ri token" });
   }
@@ -65,4 +65,10 @@ function requireTeacherOrAdmin(req, res, next) {
   next();
 }
 
-module.exports = { authMiddleware, requireRole, requireAdmin, requireTeacherOrAdmin, ROLES };
+module.exports = {
+  authMiddleware,
+  requireRole,
+  requireAdmin,
+  requireTeacherOrAdmin,
+  ROLES,
+};

@@ -4,6 +4,13 @@ const pool = require("../db/pool");
 const bcrypt = require("bcryptjs");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
+// UUID validatsiyasi
+function isValidUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    str,
+  );
+}
+
 // GET /api/students
 router.get("/", authMiddleware, async (req, res) => {
   try {
@@ -13,7 +20,6 @@ router.get("/", authMiddleware, async (req, res) => {
     let where = "WHERE 1=1";
 
     if (ROLES.TEACHER.includes(role)) {
-      // Master/Curator — faqat o'z guruhlaridagi talabalar
       const assignedRes = await pool.query(
         "SELECT group_id FROM group_assignments WHERE user_id = $1",
         [userId],
@@ -25,9 +31,13 @@ router.get("/", authMiddleware, async (req, res) => {
       params.push(assignedIds);
       where += ` AND s.group_id = ANY($${params.length})`;
     } else if ([...ROLES.ADMIN, ...ROLES.MANAGER].includes(role)) {
-      // Director/Deputy/Manager — barcha talabalar, lekin filter qilish mumkin
       if (groupId) {
-        params.push(parseInt(groupId));
+        if (!isValidUUID(groupId)) {
+          return res
+            .status(400)
+            .json({ error: "Noto'g'ri guruh ID (UUID kerak)" });
+        }
+        params.push(groupId);
         where += ` AND s.group_id = $${params.length}`;
       }
     } else {
@@ -72,7 +82,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
     const { role, id: userId } = req.user;
     const studentId = req.params.id.toUpperCase();
 
-    // Student faqat o'zini ko'ra oladi
     if (role === "student" && userId !== studentId) {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
@@ -98,7 +107,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
 
     const student = studentRes.rows[0];
 
-    // Master/Curator faqat o'z guruhidagi talabani ko'ra oladi
     if (ROLES.TEACHER.includes(role)) {
       const assigned = await pool.query(
         "SELECT group_id FROM group_assignments WHERE user_id = $1 AND group_id = $2",
@@ -109,7 +117,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
       }
     }
 
-    // Davomat tarixi (oxirgi 30 kun)
     const historyRes = await pool.query(
       `SELECT date, status, scanned_at
        FROM attendance
@@ -119,7 +126,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
       [studentId],
     );
 
-    // Statistika
     const statsRes = await pool.query(
       `SELECT
          COUNT(*)                                           AS total_days,
@@ -157,6 +163,10 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
       });
     }
 
+    if (!isValidUUID(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID (UUID kerak)" });
+    }
+
     const upperid = id.toUpperCase().trim();
 
     const existing = await pool.query("SELECT id FROM users WHERE id = $1", [
@@ -174,10 +184,11 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
       [upperid, hashed, firstName.trim(), lastName.trim()],
     );
 
+    // ✅ groupId UUID string — parseInt yo'q
     await pool.query(
       `INSERT INTO students (id, group_id, student_code)
        VALUES ($1, $2, $3)`,
-      [upperid, parseInt(groupId), studentCode || upperid],
+      [upperid, groupId, studentCode || upperid],
     );
 
     res.status(201).json({
@@ -200,6 +211,10 @@ router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
     const studentId = req.params.id.toUpperCase();
     const { firstName, lastName, groupId, studentCode } = req.body;
 
+    if (groupId && !isValidUUID(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID (UUID kerak)" });
+    }
+
     if (firstName || lastName) {
       await pool.query(
         `UPDATE users SET
@@ -212,13 +227,14 @@ router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
     }
 
     if (groupId || studentCode) {
+      // ✅ groupId UUID string — parseInt yo'q
       await pool.query(
         `UPDATE students SET
            group_id     = COALESCE($1, group_id),
            student_code = COALESCE($2, student_code),
            updated_at   = NOW()
          WHERE id = $3`,
-        [groupId ? parseInt(groupId) : null, studentCode || null, studentId],
+        [groupId || null, studentCode || null, studentId],
       );
     }
 
@@ -233,7 +249,6 @@ router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
 router.delete("/:id", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const studentId = req.params.id.toUpperCase();
-    // CASCADE tufayli students va attendance ham o'chadi
     await pool.query("DELETE FROM users WHERE id = $1", [studentId]);
     res.json({ message: "Talaba o'chirildi" });
   } catch (err) {

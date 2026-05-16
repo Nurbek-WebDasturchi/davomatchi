@@ -4,12 +4,12 @@ require("dotenv").config();
 // DATABASE_URL dan IPv6 ni IPv4 ga o'tkazish
 function fixDatabaseUrl(url) {
   if (!url) return url;
-  
+
   // Supabase connection pooler ishlatish (port 6543 — IPv4 supported)
   // db.xxx.supabase.co:5432  →  aws-0-xxx.pooler.supabase.com:6543
   // Agar allaqachon pooler URL bo'lsa — o'zgartirma
-  if (url.includes('pooler.supabase.com')) return url;
-  
+  if (url.includes("pooler.supabase.com")) return url;
+
   return url;
 }
 

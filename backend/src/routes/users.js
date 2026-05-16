@@ -4,6 +4,13 @@ const bcrypt = require("bcryptjs");
 const pool = require("../db/pool");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
+// UUID validatsiyasi
+function isValidUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    str,
+  );
+}
+
 // GET /api/users
 router.get("/", authMiddleware, requireAdmin, async (req, res) => {
   try {
@@ -24,7 +31,6 @@ router.get("/", authMiddleware, requireAdmin, async (req, res) => {
 
     const result = await pool.query(
       `SELECT u.id, u.role, u.first_name, u.last_name, u.created_at,
-              -- Master/Curator uchun guruhlarini ham ko'rsatamiz
               ARRAY_AGG(DISTINCT ga.group_id) FILTER (WHERE ga.group_id IS NOT NULL) AS group_ids
        FROM users u
        LEFT JOIN group_assignments ga ON ga.user_id = u.id
@@ -46,7 +52,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
   try {
     const targetId = req.params.id.toUpperCase();
 
-    // Faqat admin yoki o'zi ko'ra oladi
     if (!ROLES.ADMIN.includes(req.user.role) && req.user.id !== targetId) {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
@@ -61,7 +66,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
 
     const user = userRes.rows[0];
 
-    // Agar master/curator bo'lsa guruhlarini ham olib kelish
     let assignedGroups = [];
     if (ROLES.TEACHER.includes(user.role)) {
       const ag = await pool.query(
@@ -75,7 +79,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
       assignedGroups = ag.rows;
     }
 
-    // Agar student bo'lsa guruhini olib kelish
     let groupInfo = null;
     if (user.role === "student") {
       const sg = await pool.query(
@@ -96,7 +99,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/users  — Yangi foydalanuvchi qo'shish (faqat director/deputy)
+// POST /api/users  (faqat director/deputy)
 router.post("/", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id, password, role, firstName, lastName, groupIds } = req.body;
@@ -127,6 +130,17 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
         .json({ error: "ID 4-10 belgi orasida bo'lishi kerak" });
     }
 
+    // groupIds UUID ekanligini tekshirish
+    if (groupIds && groupIds.length > 0) {
+      for (const gid of groupIds) {
+        if (!isValidUUID(gid)) {
+          return res
+            .status(400)
+            .json({ error: `Noto'g'ri guruh ID: ${gid} (UUID kerak)` });
+        }
+      }
+    }
+
     const existing = await pool.query("SELECT id FROM users WHERE id = $1", [
       upperid,
     ]);
@@ -143,7 +157,8 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
 
     // Student bo'lsa students jadvaliga qo'shish
     if (role === "student") {
-      const gid = groupIds?.[0] ? parseInt(groupIds[0]) : null;
+      // ✅ groupIds[0] UUID string — parseInt yo'q
+      const gid = groupIds?.[0] || null;
       await pool.query(
         `INSERT INTO students (id, group_id, student_code)
          VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
@@ -154,10 +169,11 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
     // Master/Curator bo'lsa guruhlarini biriktirish
     if (ROLES.TEACHER.includes(role) && groupIds?.length > 0) {
       for (const gid of groupIds) {
+        // ✅ gid UUID string — parseInt yo'q
         await pool.query(
           `INSERT INTO group_assignments (user_id, group_id)
            VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [upperid, parseInt(gid)],
+          [upperid, gid],
         );
       }
     }
@@ -172,11 +188,22 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/users/:id  — Ma'lumotlarni yangilash (faqat director/deputy)
+// PUT /api/users/:id  (faqat director/deputy)
 router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const targetId = req.params.id.toUpperCase();
     const { firstName, lastName, role, groupIds } = req.body;
+
+    // groupIds UUID ekanligini tekshirish
+    if (groupIds && groupIds.length > 0) {
+      for (const gid of groupIds) {
+        if (!isValidUUID(gid)) {
+          return res
+            .status(400)
+            .json({ error: `Noto'g'ri guruh ID: ${gid} (UUID kerak)` });
+        }
+      }
+    }
 
     await pool.query(
       `UPDATE users SET
@@ -194,10 +221,11 @@ router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
         targetId,
       ]);
       for (const gid of groupIds) {
+        // ✅ gid UUID string — parseInt yo'q
         await pool.query(
           `INSERT INTO group_assignments (user_id, group_id)
            VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [targetId, parseInt(gid)],
+          [targetId, gid],
         );
       }
     }
@@ -214,7 +242,6 @@ router.delete("/:id", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const targetId = req.params.id.toUpperCase();
 
-    // O'zini o'chira olmaydi
     if (req.user.id === targetId) {
       return res.status(400).json({ error: "O'zingizni o'chira olmaysiz" });
     }
