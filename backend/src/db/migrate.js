@@ -7,6 +7,9 @@ async function migrate() {
     client = await pool.connect();
     console.log("🔄 Migration boshlanmoqda...");
 
+    // pgcrypto (gen_random_uuid, crypt)
+    await client.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto`);
+
     // USERS
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -28,14 +31,14 @@ async function migrate() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id         SERIAL PRIMARY KEY,
-        name       VARCHAR(100) NOT NULL,
+        name       VARCHAR(150) NOT NULL,
         year       INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
     console.log("  ✓ courses");
 
-    // GROUPS  (teacher_id YO'Q — group_assignments ishlatiladi)
+    // GROUPS (id = SERIAL INTEGER, qr_token = UUID string)
     await client.query(`
       CREATE TABLE IF NOT EXISTS groups (
         id         SERIAL PRIMARY KEY,
@@ -72,12 +75,12 @@ async function migrate() {
     `);
     console.log("  ✓ students");
 
-    // ATTENDANCE — group_id NOT NULL emas, fkey alohida qo'shiladi
+    // ATTENDANCE
     await client.query(`
       CREATE TABLE IF NOT EXISTS attendance (
         id         SERIAL PRIMARY KEY,
         student_id VARCHAR(10) NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-        group_id   INTEGER,
+        group_id   INTEGER     REFERENCES groups(id) ON DELETE SET NULL,
         date       DATE        NOT NULL DEFAULT CURRENT_DATE,
         status     VARCHAR(20) NOT NULL DEFAULT 'present'
                    CHECK (status IN ('present','absent','late')),

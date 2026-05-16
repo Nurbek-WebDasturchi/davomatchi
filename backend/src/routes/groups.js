@@ -62,8 +62,10 @@ router.get("/meta/courses", authMiddleware, async (req, res) => {
 // GET /api/groups/:id/qr
 router.get("/:id/qr", authMiddleware, async (req, res) => {
   try {
-    // UUID sifatida olamiz — parseInt YO'Q
-    const groupId = req.params.id;
+    const groupId = parseInt(req.params.id);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID" });
+    }
     const { role, id: userId } = req.user;
 
     if (ROLES.TEACHER.includes(role)) {
@@ -89,7 +91,6 @@ router.get("/:id/qr", authMiddleware, async (req, res) => {
 
     const group = result.rows[0];
 
-    // QR token yo'q bo'lsa yangi token yaratamiz
     let qrToken = group.qr_token;
     if (!qrToken) {
       qrToken = uuidv4();
@@ -121,7 +122,10 @@ router.get("/:id/qr", authMiddleware, async (req, res) => {
 // GET /api/groups/:id/students
 router.get("/:id/students", authMiddleware, async (req, res) => {
   try {
-    const groupId = req.params.id; // UUID
+    const groupId = parseInt(req.params.id);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID" });
+    }
     const { role, id: userId } = req.user;
 
     if (ROLES.TEACHER.includes(role)) {
@@ -165,7 +169,7 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
 
     const result = await pool.query(
       "INSERT INTO groups (name, course_id, qr_token) VALUES ($1, $2, $3) RETURNING *",
-      [name.trim(), courseId, uuidv4()],
+      [name.trim(), parseInt(courseId), uuidv4()],
     );
 
     res.status(201).json({ group: result.rows[0] });
@@ -183,7 +187,10 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
 // POST /api/groups/:id/assign
 router.post("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const groupId = req.params.id;
+    const groupId = parseInt(req.params.id);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID" });
+    }
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId kerak" });
 

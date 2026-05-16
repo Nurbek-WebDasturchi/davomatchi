@@ -6,9 +6,9 @@ async function seed() {
   const client = await pool.connect();
   try {
     // ─────────────────────────────────────────────────────────
-    // MUHIM: Bu seed FAQAT asosiy admin/manager userlarni
-    // yaratadi. Supabase'dagi mavjud ma'lumotlarga TEGMAYDI.
-    // Agar user allaqachon mavjud bo'lsa — o'tkazib yuboradi.
+    // Bu seed FAQAT asosiy admin/manager userlarni yaratadi.
+    // Talabalar, guruhlar va kurslar new_seed.sql orqali
+    // Supabase SQL Editorga yuklanadi.
     // ─────────────────────────────────────────────────────────
 
     const check = await client.query(
@@ -43,12 +43,11 @@ async function seed() {
     console.log("   Deputy:       DP0001 / deputy123");
     console.log("   Att.Manager:  AM0001 / manager123");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("ℹ️  Guruhlar, talabalar va o'qituvchilar");
-    console.log("   Supabase dashboard orqali qo'shing.");
+    console.log("ℹ️  Guruhlar, talabalar va kurslar uchun");
+    console.log("   new_seed.sql ni Supabase SQL Editorga joylashtiring.");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   } catch (err) {
     console.error("❌ Seed xatosi:", err.message);
-    // Seed xatosi serverga ta'sir qilmasin
   } finally {
     client.release();
   }
