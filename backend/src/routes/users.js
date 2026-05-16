@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
 const pool = require("../db/pool");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
@@ -148,16 +147,15 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "Bu ID allaqachon mavjud" });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-
+    // ✅ pgcrypto crypt() bilan hash — login bilan mos
     await pool.query(
-      "INSERT INTO users (id, password, role, first_name, last_name) VALUES ($1,$2,$3,$4,$5)",
-      [upperid, hashed, role, firstName.trim(), lastName.trim()],
+      `INSERT INTO users (id, password, role, first_name, last_name)
+       VALUES ($1, crypt($2, gen_salt('bf')), $3, $4, $5)`,
+      [upperid, password, role, firstName.trim(), lastName.trim()],
     );
 
     // Student bo'lsa students jadvaliga qo'shish
     if (role === "student") {
-      // ✅ groupIds[0] UUID string — parseInt yo'q
       const gid = groupIds?.[0] || null;
       await pool.query(
         `INSERT INTO students (id, group_id, student_code)
@@ -169,7 +167,6 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
     // Master/Curator bo'lsa guruhlarini biriktirish
     if (ROLES.TEACHER.includes(role) && groupIds?.length > 0) {
       for (const gid of groupIds) {
-        // ✅ gid UUID string — parseInt yo'q
         await pool.query(
           `INSERT INTO group_assignments (user_id, group_id)
            VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -221,7 +218,6 @@ router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
         targetId,
       ]);
       for (const gid of groupIds) {
-        // ✅ gid UUID string — parseInt yo'q
         await pool.query(
           `INSERT INTO group_assignments (user_id, group_id)
            VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -265,11 +261,13 @@ router.put(
       if (!newPassword || newPassword.length < 6) {
         return res.status(400).json({ error: "Parol kamida 6 ta belgi" });
       }
-      const hashed = await bcrypt.hash(newPassword, 10);
+
+      // ✅ pgcrypto crypt() bilan hash — login bilan mos
       await pool.query(
-        "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2",
-        [hashed, req.params.id.toUpperCase()],
+        `UPDATE users SET password = crypt($1, gen_salt('bf')), updated_at = NOW() WHERE id = $2`,
+        [newPassword, req.params.id.toUpperCase()],
       );
+
       res.json({ message: "Parol muvaffaqiyatli yangilandi" });
     } catch (err) {
       console.error("Reset password xatosi:", err.message);

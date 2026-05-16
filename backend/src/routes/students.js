@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
-const bcrypt = require("bcryptjs");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
 // UUID validatsiyasi
@@ -176,15 +175,13 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "Bu ID allaqachon mavjud" });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-
+    // ✅ pgcrypto crypt() bilan hash — login bilan mos
     await pool.query(
       `INSERT INTO users (id, password, role, first_name, last_name)
-       VALUES ($1, $2, 'student', $3, $4)`,
-      [upperid, hashed, firstName.trim(), lastName.trim()],
+       VALUES ($1, crypt($2, gen_salt('bf')), 'student', $3, $4)`,
+      [upperid, password, firstName.trim(), lastName.trim()],
     );
 
-    // ✅ groupId UUID string — parseInt yo'q
     await pool.query(
       `INSERT INTO students (id, group_id, student_code)
        VALUES ($1, $2, $3)`,
@@ -227,7 +224,6 @@ router.put("/:id", authMiddleware, requireAdmin, async (req, res) => {
     }
 
     if (groupId || studentCode) {
-      // ✅ groupId UUID string — parseInt yo'q
       await pool.query(
         `UPDATE students SET
            group_id     = COALESCE($1, group_id),

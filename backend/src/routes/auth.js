@@ -1,12 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const pool = require("../db/pool");
 const { authMiddleware } = require("../middleware/auth");
 
 // POST /api/auth/login
-// ID + Password bilan kirish
 router.post("/login", async (req, res) => {
   try {
     const { userId, password } = req.body;
@@ -15,10 +13,12 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "ID va parol kerak" });
     }
 
-    // Foydalanuvchini topish
+    // ✅ pgcrypto crypt() bilan tekshiruv — barcha userlar uchun
     const result = await pool.query(
-      "SELECT id, password, role, first_name, last_name FROM users WHERE id = $1",
-      [userId.toUpperCase().trim()],
+      `SELECT id, role, first_name, last_name
+       FROM users
+       WHERE id = $1 AND password = crypt($2, password)`,
+      [userId.toUpperCase().trim(), password],
     );
 
     if (result.rows.length === 0) {
@@ -26,12 +26,6 @@ router.post("/login", async (req, res) => {
     }
 
     const user = result.rows[0];
-
-    // Parolni tekshirish
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ error: "ID yoki parol noto'g'ri" });
-    }
 
     // Token yaratish (7 kun)
     const token = jwt.sign(
@@ -115,19 +109,20 @@ router.post("/change-password", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "Parol kamida 6 ta belgi" });
     }
 
+    // ✅ Eski parolni pgcrypto crypt() bilan tekshirish
     const result = await pool.query(
-      "SELECT password FROM users WHERE id = $1",
-      [req.user.id],
+      `SELECT id FROM users WHERE id = $1 AND password = crypt($2, password)`,
+      [req.user.id, oldPassword],
     );
-    const isValid = await bcrypt.compare(oldPassword, result.rows[0].password);
-    if (!isValid) {
+
+    if (result.rows.length === 0) {
       return res.status(401).json({ error: "Eski parol noto'g'ri" });
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    // ✅ Yangi parolni pgcrypto crypt() bilan saqlash
     await pool.query(
-      "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2",
-      [hashed, req.user.id],
+      `UPDATE users SET password = crypt($1, gen_salt('bf')), updated_at = NOW() WHERE id = $2`,
+      [newPassword, req.user.id],
     );
 
     res.json({ message: "Parol muvaffaqiyatli o'zgartirildi" });
