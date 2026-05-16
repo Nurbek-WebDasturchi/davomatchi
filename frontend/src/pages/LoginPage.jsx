@@ -253,10 +253,10 @@ export default function LoginPage() {
             textDecoration: "none",
           }}>
           Dastur{" "}
-          <a href="https://t.me/N_2984" target="_blank">
+          <a href="https://t.me/N_2984" target="_blank" className="ceo_name">
             Akhmedov Provides
           </a>{" "}
-          tomonidan yaratilgan. <br />© 2025 DavomatGo. Barcha huquqlar
+          tomonidan yaratilgan. <br />© 2026 DavomatGo. Barcha huquqlar
           himoyalangan.
         </p>
       </div>
