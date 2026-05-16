@@ -27,10 +27,10 @@ async function migrate() {
     `);
     console.log("  ✓ users");
 
-    // COURSES
+    // COURSES — UUID primary key (Supabase default)
     await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
-        id         SERIAL PRIMARY KEY,
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name       VARCHAR(150) NOT NULL,
         year       INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
@@ -38,35 +38,35 @@ async function migrate() {
     `);
     console.log("  ✓ courses");
 
-    // GROUPS (id = SERIAL INTEGER, qr_token = UUID string)
+    // GROUPS — UUID primary key
     await client.query(`
       CREATE TABLE IF NOT EXISTS groups (
-        id         SERIAL PRIMARY KEY,
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name       VARCHAR(100) NOT NULL UNIQUE,
-        course_id  INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+        course_id  UUID REFERENCES courses(id) ON DELETE SET NULL,
         qr_token   VARCHAR(255) UNIQUE NOT NULL DEFAULT gen_random_uuid()::text,
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
     console.log("  ✓ groups");
 
-    // GROUP ASSIGNMENTS
+    // GROUP ASSIGNMENTS — UUID for group_id
     await client.query(`
       CREATE TABLE IF NOT EXISTS group_assignments (
-        id         SERIAL PRIMARY KEY,
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id    VARCHAR(10) NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-        group_id   INTEGER     NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+        group_id   UUID        NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE (user_id, group_id)
       )
     `);
     console.log("  ✓ group_assignments");
 
-    // STUDENTS
+    // STUDENTS — group_id is UUID
     await client.query(`
       CREATE TABLE IF NOT EXISTS students (
         id           VARCHAR(10) PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        group_id     INTEGER REFERENCES groups(id) ON DELETE SET NULL,
+        group_id     UUID REFERENCES groups(id) ON DELETE SET NULL,
         student_code VARCHAR(50) UNIQUE,
         phone        VARCHAR(20),
         created_at   TIMESTAMP DEFAULT NOW(),
@@ -75,12 +75,12 @@ async function migrate() {
     `);
     console.log("  ✓ students");
 
-    // ATTENDANCE
+    // ATTENDANCE — group_id is UUID
     await client.query(`
       CREATE TABLE IF NOT EXISTS attendance (
-        id         SERIAL PRIMARY KEY,
+        id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         student_id VARCHAR(10) NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-        group_id   INTEGER     REFERENCES groups(id) ON DELETE SET NULL,
+        group_id   UUID        REFERENCES groups(id) ON DELETE SET NULL,
         date       DATE        NOT NULL DEFAULT CURRENT_DATE,
         status     VARCHAR(20) NOT NULL DEFAULT 'present'
                    CHECK (status IN ('present','absent','late')),

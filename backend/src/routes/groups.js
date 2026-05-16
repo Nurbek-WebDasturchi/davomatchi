@@ -5,6 +5,13 @@ const QRCode = require("qrcode");
 const { v4: uuidv4 } = require("uuid");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
+// UUID validatsiyasi uchun yordamchi funksiya
+function isValidUUID(str) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    str,
+  );
+}
+
 // GET /api/groups
 router.get("/", authMiddleware, async (req, res) => {
   try {
@@ -62,9 +69,9 @@ router.get("/meta/courses", authMiddleware, async (req, res) => {
 // GET /api/groups/:id/qr
 router.get("/:id/qr", authMiddleware, async (req, res) => {
   try {
-    const groupId = parseInt(req.params.id);
-    if (isNaN(groupId)) {
-      return res.status(400).json({ error: "Noto'g'ri guruh ID" });
+    const groupId = req.params.id;
+    if (!isValidUUID(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID (UUID kerak)" });
     }
     const { role, id: userId } = req.user;
 
@@ -122,9 +129,9 @@ router.get("/:id/qr", authMiddleware, async (req, res) => {
 // GET /api/groups/:id/students
 router.get("/:id/students", authMiddleware, async (req, res) => {
   try {
-    const groupId = parseInt(req.params.id);
-    if (isNaN(groupId)) {
-      return res.status(400).json({ error: "Noto'g'ri guruh ID" });
+    const groupId = req.params.id;
+    if (!isValidUUID(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID (UUID kerak)" });
     }
     const { role, id: userId } = req.user;
 
@@ -166,10 +173,13 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
     if (!name || !courseId) {
       return res.status(400).json({ error: "Guruh nomi va kurs kerak" });
     }
+    if (!isValidUUID(courseId)) {
+      return res.status(400).json({ error: "Noto'g'ri kurs ID (UUID kerak)" });
+    }
 
     const result = await pool.query(
       "INSERT INTO groups (name, course_id, qr_token) VALUES ($1, $2, $3) RETURNING *",
-      [name.trim(), parseInt(courseId), uuidv4()],
+      [name.trim(), courseId, uuidv4()],
     );
 
     res.status(201).json({ group: result.rows[0] });
@@ -187,9 +197,9 @@ router.post("/", authMiddleware, requireAdmin, async (req, res) => {
 // POST /api/groups/:id/assign
 router.post("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const groupId = parseInt(req.params.id);
-    if (isNaN(groupId)) {
-      return res.status(400).json({ error: "Noto'g'ri guruh ID" });
+    const groupId = req.params.id;
+    if (!isValidUUID(groupId)) {
+      return res.status(400).json({ error: "Noto'g'ri guruh ID (UUID kerak)" });
     }
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: "userId kerak" });
