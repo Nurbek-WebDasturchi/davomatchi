@@ -59,7 +59,7 @@ export default function MyGroupsPage() {
         }}>
         <div>
           <h1 style={{ fontSize: "18px", fontWeight: 900 }}>
-            {user?.role === "master" ? "👨‍🏫 Usta o'qituvchi" : "👨‍🏫 Kurator"}
+            {user?.role === "master" ? "👨‍🏫 Master o'qituvchi" : "👨‍🏫 Kurator"}
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "11px" }}>
             {user?.firstName} {user?.lastName}
