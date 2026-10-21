@@ -1,4 +1,5 @@
 const express = require("express");
+const crypto = require("crypto");
 const router = express.Router();
 const pool = require("../db/pool");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
@@ -445,6 +446,34 @@ const tokenFromQuery = (req, res, next) => {
   next();
 };
 
+function getTelegramWebAppUser(initData) {
+  const botToken = process.env.BOT_TOKEN;
+  if (!botToken || !initData) return null;
+  const params = new URLSearchParams(initData);
+  const receivedHash = params.get("hash");
+  const authDate = Number(params.get("auth_date"));
+  const userValue = params.get("user");
+  if (!receivedHash || !authDate || !userValue) return null;
+  if (Math.abs(Date.now() / 1000 - authDate) > 24 * 60 * 60) return null;
+
+  const dataCheckString = [...params.entries()]
+    .filter(([key]) => key !== "hash")
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+  const secretKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest();
+  const expectedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+  const received = Buffer.from(receivedHash, "hex");
+  const expected = Buffer.from(expectedHash, "hex");
+  if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) return null;
+  try {
+    const user = JSON.parse(userValue);
+    return user.id ? user : null;
+  } catch {
+    return null;
+  }
+}
+
 router.get("/export", tokenFromQuery, authMiddleware, async (req, res) => {
   try {
     const allowed = ["director", "deputy", "attendance_manager"];
@@ -522,6 +551,76 @@ router.get("/export", tokenFromQuery, authMiddleware, async (req, res) => {
   } catch (err) {
     console.error("Export xatosi:", err.message);
     res.status(500).json({ error: "Server xatosi" });
+  }
+});
+
+router.post("/export/telegram", authMiddleware, async (req, res) => {
+  try {
+    if (!["director", "deputy", "attendance_manager"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Ruxsat yo'q" });
+    }
+    const telegramUser = getTelegramWebAppUser(req.get("X-Telegram-Init-Data"));
+    if (!telegramUser) {
+      return res.status(401).json({ error: "Telegram sessiyasi tasdiqlanmadi. Ilovani botdan qayta oching." });
+    }
+    if (typeof FormData === "undefined" || typeof Blob === "undefined") {
+      return res.status(500).json({ error: "Server Telegram fayl yuborishni qo'llamaydi" });
+    }
+
+    const end = req.body?.endDate || getTodayUzbekDate();
+    const start = req.body?.startDate || (() => {
+      const t = getUzbekTime();
+      t.setUTCDate(t.getUTCDate() - 7);
+      return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+    })();
+    const result = await pool.query(
+      `SELECT u.last_name || ' ' || u.first_name AS "Talaba ismi",
+              s.student_code AS "Talaba kodi", g.name AS "Guruh", c.name AS "Kurs",
+              TO_CHAR(a.date, 'YYYY-MM-DD') AS "Sana", a.status AS "Holat",
+              TO_CHAR(a.scanned_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tashkent', 'HH24:MI') AS "Vaqt"
+       FROM attendance a JOIN students s ON s.id = a.student_id
+       JOIN users u ON u.id = s.id JOIN groups g ON g.id = a.group_id
+       JOIN courses c ON c.id = g.course_id
+       WHERE a.date BETWEEN $1 AND $2 ORDER BY a.date, g.name, u.last_name`,
+      [start, end],
+    );
+    const ExcelJS = require("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Davomat");
+    const columns = [
+      { header: "Talaba ismi", key: "Talaba ismi", width: 30 },
+      { header: "Talaba kodi", key: "Talaba kodi", width: 16 },
+      { header: "Guruh", key: "Guruh", width: 16 },
+      { header: "Kurs", key: "Kurs", width: 16 },
+      { header: "Sana", key: "Sana", width: 14 },
+      { header: "Holat", key: "Holat", width: 12 },
+      { header: "Vaqt", key: "Vaqt", width: 10 },
+    ];
+    sheet.columns = columns;
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
+    result.rows.forEach((row) => sheet.addRow(columns.map((column) => row[column.key] ?? "")));
+
+    const form = new FormData();
+    form.append("chat_id", String(telegramUser.id));
+    form.append("caption", "Davomat hisoboti: " + start + " — " + end);
+    form.append("document", new Blob([await workbook.xlsx.writeBuffer()], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }), "davomat_" + start + "_" + end + ".xlsx");
+    const telegramResponse = await fetch("https://api.telegram.org/bot" + process.env.BOT_TOKEN + "/sendDocument", {
+      method: "POST",
+      body: form,
+    });
+    const telegramResult = await telegramResponse.json();
+    if (!telegramResponse.ok || !telegramResult.ok) {
+      console.error("Telegram Excel jo'natish xatosi:", telegramResult.description || telegramResponse.status);
+      return res.status(502).json({ error: "Bot faylni yubora olmadi. Bot bilan suhbatni ochib /start bosing." });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Telegram export xatosi:", err.message);
+    res.status(500).json({ error: "Excel faylini Telegramga yuborib bo'lmadi" });
   }
 });
 

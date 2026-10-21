@@ -28,6 +28,14 @@ export function playAttendanceSuccess() {
 }
 
 export async function downloadAttendanceExcel(params = {}) {
+  const telegram = window.Telegram?.WebApp;
+  if (telegram?.initData) {
+    await api.post('/attendance/export/telegram', params, {
+      headers: { 'X-Telegram-Init-Data': telegram.initData },
+    });
+    telegram.showAlert?.('Excel fayli Telegram bot orqali yuborildi. Bot chatini tekshiring.');
+    return;
+  }
   const response = await api.get('/attendance/export', {
     params,
     responseType: 'blob',

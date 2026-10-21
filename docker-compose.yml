@@ -24,6 +24,7 @@ services:
     environment:
       DATABASE_URL: postgresql://attendance_user:attendance_pass@postgres:5432/attendance_db
       JWT_SECRET: change_this_in_production
+      BOT_TOKEN: ${BOT_TOKEN}
       PORT: 3001
       NODE_ENV: development
     depends_on:
