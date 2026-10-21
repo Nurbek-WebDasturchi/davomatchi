@@ -1,4 +1,23 @@
 import * as XLSX from 'xlsx';
+import api from './api';
+
+export async function downloadAttendanceExcel(params = {}) {
+  const response = await api.get('/attendance/export', {
+    params,
+    responseType: 'blob',
+  });
+  const blob = new Blob([response.data], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = 'davomat.xlsx';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
 
 // Ma'lumotlarni Excel fayliga eksport qilish
 export function exportToExcel(data, filename = 'davomat') {

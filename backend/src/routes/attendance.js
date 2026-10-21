@@ -3,10 +3,6 @@ const router = express.Router();
 const pool = require("../db/pool");
 const { authMiddleware, requireAdmin, ROLES } = require("../middleware/auth");
 
-// Davomat vaqt oralig'i (O'zbekiston vaqti UTC+5)
-const ATTENDANCE_START = { hour: 8, minute: 30 }; // 08:30
-const ATTENDANCE_END = { hour: 13, minute: 20 }; // 13:20
-
 // O'zbekiston vaqtini qaytaradi (UTC+5)
 // .getUTCHours() bilan ishlatiladi — chunki biz UTC ga +5 qo'shganmiz
 function getUzbekTime() {
@@ -25,49 +21,12 @@ function getTodayUzbekDate() {
   return `${y}-${m}-${d}`;
 }
 
-function isAttendanceOpen() {
-  const t = getUzbekTime();
-  const h = t.getUTCHours();
-  const m = t.getUTCMinutes();
-  const totalMin = h * 60 + m;
-  const startMin = ATTENDANCE_START.hour * 60 + ATTENDANCE_START.minute;
-  const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
-
-  // Debug log — Render logs da ko'rish uchun
-  console.log(
-    `[isAttendanceOpen] UZ vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} | totalMin=${totalMin} | open=${totalMin >= startMin && totalMin <= endMin}`,
-  );
-
-  return totalMin >= startMin && totalMin <= endMin;
-}
-
 // POST /api/attendance/scan
 router.post("/scan", authMiddleware, async (req, res) => {
   try {
     const { qrToken, studentId } = req.body;
     if (!qrToken || !studentId) {
       return res.status(400).json({ error: "qrToken va studentId kerak" });
-    }
-
-    if (!isAttendanceOpen()) {
-      const t = getUzbekTime();
-      const h = t.getUTCHours();
-      const m = t.getUTCMinutes();
-      const totalMin = h * 60 + m;
-      const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
-
-      if (totalMin > endMin) {
-        return res.status(403).json({
-          error:
-            "Uzur, siz o'qishga kelmay turib davomat belgilay olmaysiz, hurmatli o'quvchi! 🕐",
-          timeError: true,
-        });
-      } else {
-        return res.status(403).json({
-          error: `Davomat vaqti 08:30 da boshlanadi. Hozirgi vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ⏰`,
-          timeError: true,
-        });
-      }
     }
 
     const groupRes = await pool.query(
@@ -141,25 +100,6 @@ router.post("/manual", authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== "attendance_manager") {
       return res.status(403).json({ error: "Faqat davomatchi uchun" });
-    }
-
-    if (!isAttendanceOpen()) {
-      const t = getUzbekTime();
-      const h = t.getUTCHours();
-      const m = t.getUTCMinutes();
-      const totalMin = h * 60 + m;
-      const endMin = ATTENDANCE_END.hour * 60 + ATTENDANCE_END.minute;
-      if (totalMin > endMin) {
-        return res.status(403).json({
-          error: "Davomat vaqti tugagan (13:20 dan keyin kiritish mumkin emas)",
-          timeError: true,
-        });
-      } else {
-        return res.status(403).json({
-          error: `Davomat vaqti 08:30 da boshlanadi. Hozirgi vaqt: ${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
-          timeError: true,
-        });
-      }
     }
 
     const { studentId } = req.body;

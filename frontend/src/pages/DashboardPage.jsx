@@ -4,12 +4,14 @@ import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 import NavBar from "../components/NavBar";
 import StatCard from "../components/StatCard";
+import { downloadAttendanceExcel } from "../utils/export";
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const today = new Date().toLocaleDateString("uz-UZ", {
     day: "numeric",
@@ -33,16 +35,23 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleExport = () => {
-    const token =
-      localStorage.getItem("token") || sessionStorage.getItem("token") || "";
-    const baseURL = api.defaults.baseURL || "";
-    const today = new Date().toISOString().split("T")[0];
-    const weekAgo = new Date(Date.now() - 7 * 86400000)
-      .toISOString()
-      .split("T")[0];
-    const url = `${baseURL}/attendance/export?startDate=${weekAgo}&endDate=${today}&token=${encodeURIComponent(token)}`;
-    window.location.href = url;
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const dateValue = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      };
+      const endDate = dateValue(new Date());
+      const startDate = dateValue(new Date(Date.now() - 7 * 86400000));
+      await downloadAttendanceExcel({ startDate, endDate });
+    } catch (err) {
+      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loading)
@@ -105,6 +114,7 @@ export default function DashboardPage() {
         <div style={{ display: "flex", gap: "8px" }}>
           <button
             onClick={handleExport}
+            disabled={exporting}
             style={{
               background: "rgba(34,197,94,0.12)",
               border: "1px solid rgba(34,197,94,0.3)",
@@ -114,7 +124,7 @@ export default function DashboardPage() {
               fontSize: "11px",
               fontWeight: 700,
             }}>
-            <i className="fi fi-rr-file-excel" aria-hidden="true" style={{ marginRight: 7 }} /> Excel
+            <i className="fi fi-rr-file-excel" aria-hidden="true" style={{ marginRight: 7 }} /> {exporting ? "Yuklanmoqda..." : "Excel"}
           </button>
           <button
             onClick={logout}

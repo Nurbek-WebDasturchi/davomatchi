@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
-import { exportToExcel } from "../utils/export";
+import { downloadAttendanceExcel } from "../utils/export";
 import NavBar from "../components/NavBar";
 
 export default function MarkAttendancePage() {
@@ -38,10 +38,9 @@ export default function MarkAttendancePage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const res = await api.get("/attendance/export");
-      exportToExcel(res.data.data, "davomat");
+      await downloadAttendanceExcel();
     } catch (err) {
-      alert("Export xatosi");
+      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
     } finally {
       setExporting(false);
     }

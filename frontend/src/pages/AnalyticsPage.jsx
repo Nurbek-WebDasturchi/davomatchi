@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import NavBar from "../components/NavBar";
+import { downloadAttendanceExcel } from "../utils/export";
 
 // Foizga qarab rang qaytaradi: >=70 yashil, 50-70 sariq, <50 qizil
 const getBarColor = (foiz) => {
@@ -29,6 +30,7 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState("week");
   const [analytics, setAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   // Deputy ko'ra olmasin — sahifaga kirgan bo'lsa qaytarib yuboramiz
   if (user?.role === "deputy") {
@@ -76,17 +78,25 @@ export default function AnalyticsPage() {
       .finally(() => setLoading(false));
   }, [period]);
 
-  const handleExport = () => {
-    const token =
-      localStorage.getItem("token") || sessionStorage.getItem("token") || "";
-    const baseURL = api.defaults.baseURL || "";
-    const days = period === "month" ? 30 : 7;
-    const end = new Date().toISOString().split("T")[0];
-    const start = new Date(Date.now() - days * 86400000)
-      .toISOString()
-      .split("T")[0];
-    const url = `${baseURL}/attendance/export?startDate=${start}&endDate=${end}&token=${encodeURIComponent(token)}`;
-    window.location.href = url;
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const dateValue = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+      };
+      const days = period === "month" ? 30 : 7;
+      await downloadAttendanceExcel({
+        startDate: dateValue(new Date(Date.now() - days * 86400000)),
+        endDate: dateValue(new Date()),
+      });
+    } catch (err) {
+      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Grafik uchun ma'lumot
@@ -152,6 +162,7 @@ export default function AnalyticsPage() {
         {user.role === "director" && (
           <button
             onClick={handleExport}
+            disabled={exporting}
             style={{
               background: "rgba(34,197,94,0.12)",
               border: "1px solid rgba(34,197,94,0.3)",
@@ -161,7 +172,7 @@ export default function AnalyticsPage() {
               fontSize: "11px",
               fontWeight: 700,
             }}>
-            📥 Excel
+            {exporting ? "Yuklanmoqda..." : "📥 Excel"}
           </button>
         )}
       </div>

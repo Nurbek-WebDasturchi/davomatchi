@@ -64,17 +64,8 @@ export default function GroupDetailPage() {
 
   const getFullName = (s) => s?.full_name || s?.name || "Noma'lum";
 
-  // O'zbekiston vaqti (UTC+5)
-  const getUzTime = () => new Date(Date.now() + 5 * 60 * 60 * 1000);
-
   const getAttendanceStatus = () => {
-    const t = getUzTime();
-    const total = t.getUTCHours() * 60 + t.getUTCMinutes();
-    const start = 8 * 60 + 30;
-    const end = 13 * 60 + 20;
-    if (total < start) return "before";
-    if (total <= end) return "open";
-    return "closed";
+    return "open";
   };
 
   const attendanceStatus = getAttendanceStatus();
@@ -404,11 +395,7 @@ export default function GroupDetailPage() {
                           ? "var(--accent-amber)"
                           : "var(--text-muted)",
                   }}>
-                  {attendanceStatus === "open"
-                    ? "Davomat ochiq: 08:30 – 13:20"
-                    : attendanceStatus === "before"
-                      ? "Davomat 08:30 da boshlanadi"
-                      : "Davomat yopildi (13:20 dan keyin)"}
+                  Davomat ochiq
                 </p>
               </div>
             )}
