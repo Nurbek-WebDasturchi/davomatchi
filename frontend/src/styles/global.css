@@ -161,12 +161,19 @@ body:has(.app-nav) #root > * > div:nth-child(2) { width: min(100%, 1376px); marg
 body:has(.app-nav) #root > * > div:nth-child(2) > div:first-child { padding: 20px; }
 
 @media (max-width: 760px) {
+  :root {
+    --app-bottom-inset: max(
+      env(safe-area-inset-bottom, 0px),
+      var(--tg-safe-area-inset-bottom, 0px),
+      var(--tg-content-safe-area-inset-bottom, 0px)
+    );
+  }
   .app-nav-actions { display: contents; }
   .desktop-header-actions { display: none !important; }
-  .navbar-spacer { height: calc(65px + env(safe-area-inset-bottom, 0px)); }
+  .navbar-spacer { height: calc(65px + var(--app-bottom-inset)); }
   .app-nav {
-    inset: auto 0 0; width: auto; height: calc(65px + env(safe-area-inset-bottom, 0px));
-    padding: 0 8px env(safe-area-inset-bottom, 0px); flex-direction: row; gap: 0;
+    inset: auto 0 0; width: auto; height: calc(65px + var(--app-bottom-inset));
+    padding: 0 8px var(--app-bottom-inset); flex-direction: row; gap: 0;
     border-right: 0; border-top: 1px solid var(--border); box-shadow: 0 -2px 16px rgba(0,0,0,.2);
   }
   .app-nav-item { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 4px; padding: 7px 2px; border-radius: 0; font-size: 10px; }
