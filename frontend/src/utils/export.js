@@ -1,6 +1,24 @@
 import * as XLSX from 'xlsx';
 import api from './api';
 
+export function exportErrorMessage(error) {
+  const status = error.response?.status;
+  const message = error.response?.data?.error;
+  if (message) return message;
+  if (status === 404) return "Telegram eksport endpointi serverda topilmadi. Backendni qayta deploy qiling.";
+  if (status === 401) return "Kirish sessiyasi tugagan. Ilovaga qayta kiring.";
+  if (status === 403) return "Bu akkaunt Excel eksport qilish huquqiga ega emas.";
+  if (status === 502) return "Bot Excel faylini yubora olmadi. Bot chatida /start ni bosing.";
+  if (!error.response) return "Backend serverga ulanib bo'lmadi. Internet va server holatini tekshiring.";
+  return "Excel eksport xatosi (HTTP " + status + ").";
+}
+
+export function showExportError(error) {
+  const message = exportErrorMessage(error);
+  if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(message);
+  else window.alert(message);
+}
+
 export function playAttendanceSuccess() {
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;

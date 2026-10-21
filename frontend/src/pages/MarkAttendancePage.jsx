@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
-import { downloadAttendanceExcel, playAttendanceSuccess } from "../utils/export";
+import { downloadAttendanceExcel, playAttendanceSuccess, showExportError } from "../utils/export";
 import NavBar from "../components/NavBar";
 
 export default function MarkAttendancePage() {
@@ -41,7 +41,7 @@ export default function MarkAttendancePage() {
     try {
       await downloadAttendanceExcel();
     } catch (err) {
-      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+      showExportError(err);
     } finally {
       setExporting(false);
     }

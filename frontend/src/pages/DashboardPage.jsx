@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 import NavBar from "../components/NavBar";
 import StatCard from "../components/StatCard";
-import { downloadAttendanceExcel } from "../utils/export";
+import { downloadAttendanceExcel, showExportError } from "../utils/export";
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
@@ -48,7 +48,7 @@ export default function DashboardPage() {
       const startDate = dateValue(new Date(Date.now() - 7 * 86400000));
       await downloadAttendanceExcel({ startDate, endDate });
     } catch (err) {
-      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+      showExportError(err);
     } finally {
       setExporting(false);
     }

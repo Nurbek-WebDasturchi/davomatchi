@@ -559,6 +559,9 @@ router.post("/export/telegram", authMiddleware, async (req, res) => {
     if (!["director", "deputy", "attendance_manager"].includes(req.user.role)) {
       return res.status(403).json({ error: "Ruxsat yo'q" });
     }
+    if (!process.env.BOT_TOKEN) {
+      return res.status(503).json({ error: "Backend serverda BOT_TOKEN sozlanmagan. Telegram bot tokenini backend environment variables'iga qo'shing." });
+    }
     const telegramUser = getTelegramWebAppUser(req.get("X-Telegram-Init-Data"));
     if (!telegramUser) {
       return res.status(401).json({ error: "Telegram sessiyasi tasdiqlanmadi. Ilovani botdan qayta oching." });

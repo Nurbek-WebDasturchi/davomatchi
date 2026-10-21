@@ -15,7 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 import NavBar from "../components/NavBar";
-import { downloadAttendanceExcel } from "../utils/export";
+import { downloadAttendanceExcel, showExportError } from "../utils/export";
 
 // Foizga qarab rang qaytaradi: >=70 yashil, 50-70 sariq, <50 qizil
 const getBarColor = (foiz) => {
@@ -93,7 +93,7 @@ export default function AnalyticsPage() {
         endDate: dateValue(new Date()),
       });
     } catch (err) {
-      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+      showExportError(err);
     } finally {
       setExporting(false);
     }
