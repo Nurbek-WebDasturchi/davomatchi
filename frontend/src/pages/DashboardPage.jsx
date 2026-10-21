@@ -95,9 +95,8 @@ export default function DashboardPage() {
         }}>
         <div>
           <h1 style={{ fontSize: "18px", fontWeight: 900 }}>
-            {user?.role === "director"
-              ? "👨‍💼 Direktor"
-              : "👨‍💼 Direktor o'rinbosari"}
+            <i className="fi fi-rr-user-tie" aria-hidden="true" style={{ marginRight: 9, color: "var(--accent-blue-light)" }} />
+            {user?.role === "director" ? "Direktor" : "Direktor o'rinbosari"}
           </h1>
           <p style={{ color: "var(--text-muted)", fontSize: "11px" }}>
             {today}
@@ -115,7 +114,7 @@ export default function DashboardPage() {
               fontSize: "11px",
               fontWeight: 700,
             }}>
-            📥 Excel
+            <i className="fi fi-rr-file-excel" aria-hidden="true" style={{ marginRight: 7 }} /> Excel
           </button>
           <button
             onClick={logout}
@@ -127,7 +126,7 @@ export default function DashboardPage() {
               padding: "6px 10px",
               fontSize: "11px",
             }}>
-            Chiqish
+            <i className="fi fi-rr-sign-out-alt" aria-hidden="true" style={{ marginRight: 7 }} /> Chiqish
           </button>
         </div>
       </div>
@@ -170,13 +169,13 @@ export default function DashboardPage() {
             gap: "10px",
           }}>
           <StatCard
-            icon="👨‍🎓"
+            icon="fi fi-rr-users"
             label="JAMI TALABALAR"
             value={totals?.total_students}
             color="var(--accent-blue)"
           />
           <StatCard
-            icon="✅"
+            icon="fi fi-rr-check-circle"
             label="BUGUN KELDI"
             value={totals?.present_today}
             color="var(--accent-green)"

@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap");
+@import url("https://cdn-uicons.flaticon.com/2.6.0/uicons-regular-rounded/css/uicons-regular-rounded.css");
 
 :root {
   --bg-primary: #0f172a;
@@ -126,4 +127,44 @@ textarea {
   100% {
     top: 85%;
   }
+}
+
+/* Desktop shell: fixed left navigation and a readable, centered work area. */
+.navbar-spacer { height: 0; flex-shrink: 0; }
+.app-nav {
+  position: fixed; z-index: 100; inset: 0 auto 0 0; width: 228px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 24px 14px; background: var(--bg-secondary);
+  border-right: 1px solid var(--border); box-shadow: 8px 0 24px rgba(0,0,0,.12);
+}
+.app-nav-item {
+  position: relative; display: flex; align-items: center; gap: 13px;
+  min-height: 48px; padding: 0 14px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--text-secondary); text-align: left;
+  font-size: 14px; font-weight: 700; transition: .18s ease;
+}
+.app-nav-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.app-nav-item.active { color: var(--accent-blue-light); background: rgba(59,130,246,.13); }
+.app-nav-indicator { position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--accent-blue); border-radius: 0 4px 4px 0; }
+.app-nav-icon { width: 20px; font-size: 17px; line-height: 1; text-align: center; }
+body:has(.app-nav) #root > * { margin-left: 228px; }
+body:has(.app-nav) #root > * > header,
+body:has(.app-nav) #root > * > div:first-child { padding-left: max(28px, calc((100% - 1320px)/2)); padding-right: max(28px, calc((100% - 1320px)/2)); }
+body:has(.app-nav) #root > * > div:nth-child(2) { width: min(100%, 1376px); margin-left: auto; margin-right: auto; padding: 24px 28px; }
+body:has(.app-nav) #root > * > div:nth-child(2) > div:first-child { padding: 20px; }
+
+@media (max-width: 760px) {
+  .navbar-spacer { height: calc(65px + env(safe-area-inset-bottom, 0px)); }
+  .app-nav {
+    inset: auto 0 0; width: auto; height: calc(65px + env(safe-area-inset-bottom, 0px));
+    padding: 0 8px env(safe-area-inset-bottom, 0px); flex-direction: row; gap: 0;
+    border-right: 0; border-top: 1px solid var(--border); box-shadow: 0 -2px 16px rgba(0,0,0,.2);
+  }
+  .app-nav-item { flex: 1; flex-direction: column; justify-content: center; gap: 4px; padding: 7px 4px; border-radius: 0; font-size: 10px; }
+  .app-nav-icon { font-size: 20px; }
+  .app-nav-indicator { top: 0; bottom: auto; left: 25%; right: 25%; width: auto; height: 2px; border-radius: 0 0 3px 3px; }
+  body:has(.app-nav) #root > * { margin-left: 0; }
+  body:has(.app-nav) #root > * > div:first-child { padding-left: 20px; padding-right: 20px; }
+  body:has(.app-nav) #root > * > div:nth-child(2) { padding: 16px 20px; }
+  body:has(.app-nav) #root > * > div:nth-child(2) > div:first-child { padding: 14px; }
 }

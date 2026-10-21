@@ -45,7 +45,7 @@ export default function StatCard({ icon, label, value, subtitle, color = 'var(--
           padding: '8px',
           borderRadius: 'var(--radius-md)',
         }}>
-          {icon}
+          {String(icon).startsWith("fi ") ? <i className={icon} aria-hidden="true" /> : icon}
         </span>
       </div>
     </div>

@@ -15,27 +15,27 @@ export default function NavBar() {
   if (role === "director") {
     // Director: hamma 3 ta tab ko'radi
     items = [
-      { path: "/", icon: "🏠", label: "Bosh sahifa" },
-      { path: "/groups-list", icon: "📋", label: "Guruhlar" },
-      { path: "/analytics", icon: "📊", label: "Tahlil" },
+      { path: "/", icon: "fi fi-rr-home", label: "Bosh sahifa" },
+      { path: "/groups-list", icon: "fi fi-rr-users", label: "Guruhlar" },
+      { path: "/analytics", icon: "fi fi-rr-chart-histogram", label: "Tahlil" },
     ];
   } else if (role === "deputy") {
     // Deputy: Analytics ko'rmaydi
     items = [
-      { path: "/", icon: "🏠", label: "Bosh sahifa" },
-      { path: "/groups-list", icon: "📋", label: "Guruhlar" },
+      { path: "/", icon: "fi fi-rr-home", label: "Bosh sahifa" },
+      { path: "/groups-list", icon: "fi fi-rr-users", label: "Guruhlar" },
     ];
   } else if (role === "master" || role === "curator") {
-    items = [{ path: "/my-groups", icon: "🏠", label: "Guruhlar" }];
+    items = [{ path: "/my-groups", icon: "fi fi-rr-users", label: "Guruhlar" }];
   } else if (role === "attendance_manager") {
     items = [
-      { path: "/mark", icon: "📋", label: "Davomat" },
-      { path: "/groups-list", icon: "👥", label: "Guruhlar" },
+      { path: "/mark", icon: "fi fi-rr-clipboard-check", label: "Davomat" },
+      { path: "/groups-list", icon: "fi fi-rr-users", label: "Guruhlar" },
     ];
   } else if (role === "student") {
     items = [
-      { path: "/profile", icon: "👤", label: "Profil" },
-      { path: "/scan", icon: "📷", label: "Skaner" },
+      { path: "/profile", icon: "fi fi-rr-user", label: "Profil" },
+      { path: "/scan", icon: "fi fi-rr-camera", label: "Skaner" },
     ];
   }
 
@@ -43,62 +43,23 @@ export default function NavBar() {
 
   return (
     <>
-      <div style={{ height: "80px", flexShrink: 0 }} />
+      <div className="navbar-spacer" />
 
       <nav
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "var(--bg-secondary)",
-          borderTop: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "stretch",
-          height: "65px",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          zIndex: 100,
-          boxShadow: "0 -2px 16px rgba(0,0,0,0.2)",
-        }}>
+        className="app-nav">
         {items.map(({ path, icon, label }) => {
           const active = location.pathname === path;
           return (
             <button
               key={path}
               onClick={() => navigate(path)}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "3px",
-                padding: "8px 4px",
-                background: "transparent",
-                color: active
-                  ? "var(--accent-blue-light)"
-                  : "var(--text-muted)",
-                fontSize: "10px",
-                fontWeight: active ? 800 : 500,
-                border: "none",
-                cursor: "pointer",
-                position: "relative",
-                transition: "color 0.2s",
-              }}>
+              className={`app-nav-item${active ? " active" : ""}`}>
               {active && (
                 <span
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: "25%",
-                    right: "25%",
-                    height: "2px",
-                    background: "var(--accent-blue)",
-                    borderRadius: "0 0 3px 3px",
-                  }}
+                  className="app-nav-indicator"
                 />
               )}
-              <span style={{ fontSize: "22px", lineHeight: 1 }}>{icon}</span>
+              <i className={`app-nav-icon ${icon}`} aria-hidden="true" />
               <span>{label}</span>
             </button>
           );
