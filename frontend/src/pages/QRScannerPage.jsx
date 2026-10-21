@@ -4,6 +4,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
 import NavBar from "../components/NavBar";
+import { playAttendanceSuccess } from "../utils/export";
 
 export default function QRScannerPage() {
   const navigate = useNavigate();
@@ -126,6 +127,7 @@ export default function QRScannerPage() {
         qrToken,
         studentId: user.id,
       });
+      if (!res.data.alreadyMarked) playAttendanceSuccess();
       setResult(res.data);
 
       // Telegram WebApp ga yuborish
@@ -207,9 +209,21 @@ export default function QRScannerPage() {
                 textAlign: "center",
                 marginBottom: "16px",
               }}>
-              <p style={{ fontSize: "52px", marginBottom: "12px" }}>
-                {result.alreadyMarked ? "⚠️" : "✅"}
-              </p>
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 66,
+                  height: 66,
+                  margin: "0 auto 14px",
+                  borderRadius: "50%",
+                  display: "grid",
+                  placeItems: "center",
+                  color: "#fff",
+                  background: result.alreadyMarked ? "var(--accent-amber)" : "var(--accent-green)",
+                  boxShadow: result.alreadyMarked ? "0 8px 24px rgba(245,158,11,.25)" : "0 8px 24px rgba(34,197,94,.28)",
+                }}>
+                <i className={result.alreadyMarked ? "fi fi-rr-time-past" : "fi fi-rr-check"} style={{ fontSize: 30, lineHeight: 1 }} />
+              </div>
               <h2
                 style={{
                   fontSize: "20px",
@@ -239,28 +253,34 @@ export default function QRScannerPage() {
                   textAlign: "left",
                 }}>
                 {[
-                  { label: "👤 Talaba", val: result.attendance?.studentName },
-                  { label: "📚 Guruh", val: result.attendance?.groupName },
+                  { icon: "fi fi-rr-user", label: "Talaba", val: result.attendance?.studentName },
+                  { icon: "fi fi-rr-users", label: "Guruh", val: result.attendance?.groupName },
                   {
-                    label: "🕐 Vaqt",
+                    icon: "fi fi-rr-clock", label: "Vaqt",
                     val: result.attendance?.scannedAt
                       ? new Date(result.attendance.scannedAt).toLocaleString(
                           "uz-UZ",
                         )
                       : "—",
                   },
-                ].map(({ label, val }) => (
+                ].map(({ icon, label, val }) => (
                   <div
                     key={label}
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
                     }}>
                     <span
                       style={{
                         color: "var(--text-secondary)",
                         fontSize: "12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
                       }}>
+                      <i className={icon} aria-hidden="true" style={{ color: "var(--accent-blue-light)", width: 16, textAlign: "center" }} />
                       {label}
                     </span>
                     <span style={{ fontWeight: 700, fontSize: "12px" }}>

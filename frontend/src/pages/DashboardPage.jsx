@@ -111,7 +111,7 @@ export default function DashboardPage() {
             {today}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
+        <div className="desktop-header-actions" style={{ display: "flex", gap: "8px" }}>
           <button
             onClick={handleExport}
             disabled={exporting}

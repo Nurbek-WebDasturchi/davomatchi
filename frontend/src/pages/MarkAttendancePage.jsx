@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
-import { downloadAttendanceExcel } from "../utils/export";
+import { downloadAttendanceExcel, playAttendanceSuccess } from "../utils/export";
 import NavBar from "../components/NavBar";
 
 export default function MarkAttendancePage() {
@@ -25,6 +25,7 @@ export default function MarkAttendancePage() {
       const res = await api.post("/attendance/manual", {
         studentId: studentId.trim().toUpperCase(),
       });
+      if (!res.data.alreadyMarked) playAttendanceSuccess();
       setResult(res.data);
       setStudentId("");
     } catch (err) {
@@ -77,7 +78,7 @@ export default function MarkAttendancePage() {
             {user?.firstName} {user?.lastName}
           </p>
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div className="desktop-header-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -127,9 +128,21 @@ export default function MarkAttendancePage() {
               marginBottom: "16px",
               animation: "slideUp 0.3s ease forwards",
             }}>
-            <p style={{ fontSize: "40px", marginBottom: "10px" }}>
-              {result.alreadyMarked ? "⚠️" : "✅"}
-            </p>
+            <div
+              aria-hidden="true"
+              style={{
+                width: 58,
+                height: 58,
+                margin: "0 auto 12px",
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                color: "#fff",
+                background: result.alreadyMarked ? "var(--accent-amber)" : "var(--accent-green)",
+                boxShadow: result.alreadyMarked ? "0 8px 22px rgba(245,158,11,.25)" : "0 8px 22px rgba(34,197,94,.28)",
+              }}>
+              <i className={result.alreadyMarked ? "fi fi-rr-time-past" : "fi fi-rr-check"} style={{ fontSize: 26, lineHeight: 1 }} />
+            </div>
             <h2
               style={{
                 fontSize: "17px",
@@ -152,26 +165,30 @@ export default function MarkAttendancePage() {
                 textAlign: "left",
               }}>
               {[
-                { label: "👤 Talaba", val: result.student?.name },
-                { label: "🎫 ID", val: result.student?.id },
-                { label: "📚 Guruh", val: result.student?.groupName },
+                { icon: "fi fi-rr-user", label: "Talaba", val: result.student?.name },
+                { icon: "fi fi-rr-id-badge", label: "ID", val: result.student?.id },
+                { icon: "fi fi-rr-users", label: "Guruh", val: result.student?.groupName },
                 {
-                  label: "🕐 Vaqt",
+                  icon: "fi fi-rr-clock", label: "Vaqt",
                   val: result.student?.scannedAt
                     ? new Date(result.student.scannedAt).toLocaleTimeString(
                         "uz-UZ",
                       )
                     : "—",
                 },
-              ].map(({ label, val }) => (
+              ].map(({ icon, label, val }) => (
                 <div
                   key={label}
-                  style={{ display: "flex", justifyContent: "space-between" }}>
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                   <span
                     style={{
                       color: "var(--text-secondary)",
                       fontSize: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
                     }}>
+                    <i className={icon} aria-hidden="true" style={{ color: "var(--accent-blue-light)", width: 16, textAlign: "center" }} />
                     {label}
                   </span>
                   <span style={{ fontWeight: 700, fontSize: "12px" }}>
@@ -322,7 +339,7 @@ export default function MarkAttendancePage() {
                   Tekshirilmoqda...
                 </>
               ) : (
-                "✅ Davomatni belgilash"
+                <><i className="fi fi-rr-check" aria-hidden="true" /> Davomatni belgilash</>
               )}
             </button>
           </form>

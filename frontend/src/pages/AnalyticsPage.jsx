@@ -161,6 +161,7 @@ export default function AnalyticsPage() {
         </div>
         {user.role === "director" && (
           <button
+            className="desktop-header-actions"
             onClick={handleExport}
             disabled={exporting}
             style={{

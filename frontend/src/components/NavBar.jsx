@@ -1,11 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { downloadAttendanceExcel } from "../utils/export";
 
 export default function NavBar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [exporting, setExporting] = useState(false);
 
   if (!user) return null;
 
@@ -41,6 +43,18 @@ export default function NavBar() {
 
   if (items.length === 0) return null;
 
+  const canExport = ["director", "deputy", "attendance_manager"].includes(role);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await downloadAttendanceExcel();
+    } catch {
+      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <>
       <div className="navbar-spacer" />
@@ -64,6 +78,18 @@ export default function NavBar() {
             </button>
           );
         })}
+        <div className="app-nav-actions">
+          {canExport && (
+            <button className="app-nav-action export" onClick={handleExport} disabled={exporting}>
+              <i className="fi fi-rr-file-excel" aria-hidden="true" />
+              <span>{exporting ? "Yuklanmoqda..." : "Excel yuklab olish"}</span>
+            </button>
+          )}
+          <button className="app-nav-action logout" onClick={logout}>
+            <i className="fi fi-rr-sign-out-alt" aria-hidden="true" />
+            <span>Chiqish</span>
+          </button>
+        </div>
       </nav>
     </>
   );

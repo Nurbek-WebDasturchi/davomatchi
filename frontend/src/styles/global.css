@@ -147,6 +147,13 @@ textarea {
 .app-nav-item.active { color: var(--accent-blue-light); background: rgba(59,130,246,.13); }
 .app-nav-indicator { position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; background: var(--accent-blue); border-radius: 0 4px 4px 0; }
 .app-nav-icon { width: 20px; font-size: 17px; line-height: 1; text-align: center; }
+.app-nav-actions { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); }
+.app-nav-action { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 10px; background: transparent; text-align: left; font: 700 13px var(--font-main); transition: .18s ease; }
+.app-nav-action i { width: 20px; text-align: center; font-size: 16px; }
+.app-nav-action.export { color: var(--accent-green-light); }
+.app-nav-action.export:hover { background: rgba(34,197,94,.1); }
+.app-nav-action.logout { color: #f87171; }
+.app-nav-action.logout:hover { background: rgba(239,68,68,.1); }
 body:has(.app-nav) #root > * { margin-left: 228px; }
 body:has(.app-nav) #root > * > header,
 body:has(.app-nav) #root > * > div:first-child { padding-left: max(28px, calc((100% - 1320px)/2)); padding-right: max(28px, calc((100% - 1320px)/2)); }
@@ -154,6 +161,8 @@ body:has(.app-nav) #root > * > div:nth-child(2) { width: min(100%, 1376px); marg
 body:has(.app-nav) #root > * > div:nth-child(2) > div:first-child { padding: 20px; }
 
 @media (max-width: 760px) {
+  .app-nav-actions { display: none; }
+  .desktop-header-actions { display: flex !important; }
   .navbar-spacer { height: calc(65px + env(safe-area-inset-bottom, 0px)); }
   .app-nav {
     inset: auto 0 0; width: auto; height: calc(65px + env(safe-area-inset-bottom, 0px));
@@ -167,4 +176,8 @@ body:has(.app-nav) #root > * > div:nth-child(2) > div:first-child { padding: 20p
   body:has(.app-nav) #root > * > div:first-child { padding-left: 20px; padding-right: 20px; }
   body:has(.app-nav) #root > * > div:nth-child(2) { padding: 16px 20px; }
   body:has(.app-nav) #root > * > div:nth-child(2) > div:first-child { padding: 14px; }
+}
+
+@media (min-width: 761px) {
+  .desktop-header-actions { display: none !important; }
 }
