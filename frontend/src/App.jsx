@@ -13,6 +13,7 @@ import AnalyticsPage from "./pages/AnalyticsPage";
 import MarkAttendance from "./pages/MarkAttendancePage";
 import ProfilePage from "./pages/ProfilePage";
 import LoadingSpinner from "./components/LoadingSpinner";
+import ExcelSentModal from "./components/ExcelSentModal";
 
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -44,6 +45,22 @@ function AppRoutes() {
       if (!tg.isExpanded) {
         tg.expand();
       }
+      const syncSafeArea = () => {
+        const root = document.documentElement;
+        const safe = tg.safeAreaInset || {};
+        const contentSafe = tg.contentSafeAreaInset || {};
+        ["top", "right", "bottom", "left"].forEach((side) => {
+          root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safe[side] || 0}px`);
+          root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentSafe[side] || 0}px`);
+        });
+      };
+      syncSafeArea();
+      tg.onEvent?.("safeAreaChanged", syncSafeArea);
+      tg.onEvent?.("contentSafeAreaChanged", syncSafeArea);
+      return () => {
+        tg.offEvent?.("safeAreaChanged", syncSafeArea);
+        tg.offEvent?.("contentSafeAreaChanged", syncSafeArea);
+      };
     }
   }, []);
 
@@ -168,6 +185,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
+        <ExcelSentModal />
       </AuthProvider>
     </BrowserRouter>
   );

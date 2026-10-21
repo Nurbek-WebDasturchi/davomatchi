@@ -255,7 +255,7 @@ export default function MarkAttendancePage() {
                 type="text"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value.toUpperCase())}
-                placeholder="ST0001"
+                placeholder="Talabaning ID sini kiriting"
                 maxLength={10}
                 autoFocus
                 style={{

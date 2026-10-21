@@ -51,7 +51,8 @@ export async function downloadAttendanceExcel(params = {}) {
     await api.post('/attendance/export/telegram', params, {
       headers: { 'X-Telegram-Init-Data': telegram.initData },
     });
-    telegram.showAlert?.('Excel fayli Telegram bot orqali yuborildi. Bot chatini tekshiring.');
+    playAttendanceSuccess();
+    window.dispatchEvent(new CustomEvent('attendance:excel-sent'));
     return;
   }
   const response = await api.get('/attendance/export', {
