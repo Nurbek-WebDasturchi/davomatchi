@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { downloadAttendanceExcel } from "../utils/export";
+import { downloadAttendanceExcel, showExportError } from "../utils/export";
 
 export default function NavBar() {
   const navigate = useNavigate();
@@ -48,8 +48,8 @@ export default function NavBar() {
     setExporting(true);
     try {
       await downloadAttendanceExcel();
-    } catch {
-      alert("Excel yuklanmadi. Internet yoki server ulanishini tekshiring.");
+    } catch (error) {
+      showExportError(error);
     } finally {
       setExporting(false);
     }
@@ -82,7 +82,7 @@ export default function NavBar() {
           {canExport && (
             <button className="app-nav-action export" onClick={handleExport} disabled={exporting}>
               <i className="fi fi-rr-file-excel" aria-hidden="true" />
-              <span>{exporting ? "Yuklanmoqda..." : "Excel yuklab olish"}</span>
+              <span>{exporting ? "Yuklanmoqda..." : "Excel"}</span>
             </button>
           )}
           <button className="app-nav-action logout" onClick={logout}>
